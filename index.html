@@ -83,7 +83,7 @@
 <script type="module">
   /* ======== READ-ONLY DATA (your lists) ======== */
   const TEAMS = [
-    "Abilene Christian","Air Force","Akron","Alabama","Alabama A&M","Alabama State",
+    /*"Abilene Christian","Air Force","Akron","Alabama","Alabama A&M","Alabama State",
     "Albany","Alcorn State","Appalachian State","Arizona","Arizona State","Arkansas",
     "Arkansas State","Arkansas-Pine Bluff","Army","Auburn","Austin Peay","Ball State",
     "Baylor","Bethune-Cookman","Boise State","Boston College","Bowling Green","Brown",
@@ -98,15 +98,15 @@
     "Georgia","Georgia Southern","Georgia State","Georgia Tech","Grambling State",
     "Hampton","Harvard","Hawai'i","Holy Cross","Houston","Houston Christian","Howard",
     "Idaho","Idaho State","Illinois","Illinois State","Incarnate Word","Indiana",
-    "Indiana State","Iowa","Iowa State","Jackson State","James Madison","Kansas",
+    "Indiana State","Iowa","Iowa State","Jackson State", "Jacksonville State","James Madison","Kansas",
     "Kansas State","Kent State","Kennesaw State","Kentucky","Lafayette","Lamar",
-    "Lehigh","Liberty","LIU","Louisiana","Louisiana-Monroe","Louisiana Tech",
+    "Lehigh","Liberty", "Lindenwood","LIU","Louisiana","Louisiana-Monroe","Louisiana Tech",
     "Louisville","LSU","Maine","Marist","Marshall","Maryland","Massachusetts (UMass)",
     "McNeese State","Memphis","Mercer","Merrimack","Miami (FL)","Miami (OH)","Michigan",
     "Michigan State","Middle Tennessee","Minnesota","Mississippi State",
     "Mississippi Valley State","Missouri","Missouri State","Monmouth","Montana",
     "Montana State","Morehead State","Morgan State","Murray State","Navy","Nebraska",
-    "Nevada","New Hampshire","New Haven","New Mexico","New Mexico State","Nicholls State",
+    "Nevada","New Hampshire","New Mexico","New Mexico State","Nicholls State",
     "Norfolk State","North Alabama","North Carolina","North Carolina A&T",
     "North Carolina Central","North Carolina State","North Dakota","North Dakota State",
     "North Texas","Northern Arizona","Northern Colorado","Northern Illinois",
@@ -119,7 +119,7 @@
     "South Carolina State","South Dakota","South Dakota State","South Florida",
     "Southeast Missouri State","Southeastern Louisiana","Southern","Southern Illinois",
     "Southern Miss","Southern Utah","Stanford","Stephen F. Austin","Stetson","Stonehill",
-    "Stony Brook","Syracuse","TCU","Temple","Tennessee","Tennessee State",
+    "Stony Brook", "St. Thomas (MN)","Syracuse", "Tarleton State", "TCU","Temple","Tennessee","Tennessee State",
     "Tennessee Tech","Texas","Texas A&M","Texas A&M-Commerce","Texas Southern",
     "Texas State","Texas Tech","The Citadel","Toledo","Towson","Troy","Tulane","Tulsa",
     "UC Davis","UAB","UCF","UCLA","UConn","UNLV","USC","Utah","Utah State",
@@ -127,7 +127,10 @@
     "Vanderbilt","Villanova","Virginia","Virginia Tech","VMI","Wagner","Wake Forest",
     "Washington","Washington State","Weber State","West Georgia","West Virginia",
     "Western Carolina","Western Illinois","Western Kentucky","Western Michigan",
-    "William & Mary","Wisconsin","Wofford","Wyoming","Yale","Youngstown State"
+    "William & Mary","Wisconsin","Wofford","Wyoming","Yale","Youngstown State"*/
+"Abilene Christian, "Air Force", "Akron", "Alabama", "Alabama A&M", "Alabama State",              "Albany", "Alcorn State", "Appalachian State", "Arizona", "Arizona State", "Arkansas",              "Arkansas State", "Army", "Auburn", "Austin Peay", "Ball State", "Baylor",              "Bethune-Cookman", "Boise State", "Boston College", "Bowling Green", "Brown", "Bryant",              "Bucknell", "Buffalo", "Butler", "BYU", "Cal Poly", "California (Cal)", "Campbell",              "Central Arkansas", "Central Michigan", "Charleston Southern", "Charlotte", "Chattanooga",              "Cincinnati", "Clemson", "Coastal Carolina", "Colgate", "Colorado", "Colorado State",              "Columbia", "Connecticut (UConn)", "Cornell", "Dartmouth", "Davidson", "Dayton",              "Delaware", "Delaware State", "Drake", "Duke", "Duquesne", "East Carolina",              "East Tennessee State", "Eastern Illinois", "Eastern Kentucky", "Eastern Michigan",              "Eastern Washington", "Elon", "Florida", "Florida A&M", "Florida Atlantic",              "Florida International", "Florida State", "Fordham", "Fresno State", "Furman",              "Gardner-Webb", "Georgetown", "Georgia", "Georgia Southern", "Georgia State", "Georgia Tech",              "Grambling State", "Harvard", "Hawai'i", "Holy Cross", "Houston", "Howard", "Idaho",              "Idaho State", "Illinois", "Illinois State", "Incarnate Word", "Indiana", "Indiana State",              "Iowa", "Iowa State", "Jackson State", "James Madison", "Kansas", "Kansas State",              "Kent State", "Kennesaw State", "Kentucky", "Lafayette", "Lamar", "Lehigh", "Liberty",              "Long Island (LIU)", "Louisiana", "Louisiana-Monroe", "Louisiana Tech", "Louisville",              "LSU", "Maine", "Marist", "Marshall", "Maryland", "Massachusetts (UMass)", "McNeese State",              "Memphis", "Mercer", "Miami (FL)", "Miami (OH)", "Michigan", "Michigan State",              "Middle Tennessee", "Minnesota", "Mississippi State", "Mississippi Valley State",              "Missouri", "Missouri State", "Monmouth", "Montana", "Montana State", "Morehead State",              "Morgan State", "Murray State", "Navy", "Nebraska", "Nevada", "New Hampshire",             "New Mexico", "New Mexico State", "Nicholls State", "Norfolk State", "North Alabama",              "North Carolina", "North Carolina A&T", "North Carolina Central", "North Carolina State",              "North Dakota", "North Dakota State", "North Texas", "Northern Arizona", "Northern Colorado",              "Northern Illinois", "Northern Iowa", "Northwestern", "Northwestern State", "Notre Dame",              "Ohio", "Ohio State", "Oklahoma", "Oklahoma State", "Old Dominion", "Ole Miss", "Oregon",              "Oregon State", "Penn", "Penn State", "Pittsburgh", "Portland State", "Prairie View A&M",              "Presbyterian", "Princeton", "Rhode Island", "Rice", "Richmond", "Robert Morris", "Rutgers",              "Sacramento State", "Sacred Heart", "Saint Francis (PA)", "Samford", "San Diego",              "San Diego State", "San Jose State", "SMU", "South Alabama",              "South Carolina", "South Carolina State", "South Dakota", "South Dakota State",              "South Florida", "Southeast Missouri State", "Southeastern Louisiana", "Southern",              "Southern Illinois", "Southern Miss", "Southern Utah", "Stanford", "Stetson", "Stonehill",              "Stony Brook", "Syracuse", "TCU", "Temple", "Tennessee", "Tennessee State", "Tennessee Tech",              "Texas", "Texas A&M", "Texas Southern", "Texas State", "Texas Tech", "The Citadel", "Toledo",              "Towson", "Troy", "Tulane", "Tulsa", "UC Davis", "UAB", "UCF", "UCLA", "UNLV", "USC",              "Utah", "Utah State", "Utah Tech", "UTEP", "UT Martin", "UT Rio Grande Valley", "UTSA",              "Valparaiso", "Vanderbilt", "Villanova", "Virginia", "Virginia Tech", "VMI", "Wagner",              "Wake Forest", "Washington", "Washington State", "Weber State", "West Georgia",              "West Virginia", "Western Carolina", "Western Illinois", "Western Kentucky",              "Western Michigan", "William & Mary", "Wisconsin", "Wofford", "Wyoming", "Yale",              "Youngstown State", "Central Connecticut","Houston Christian","Jacksonville State","Lindenwood",
+  "Merrimack","Sam Houston","Stephen F. Austin","St. Thomas (MN)",
+  "Tarleton State","Texas A&M-Commerce" 
   ];
 
   const PLAYERS = [
