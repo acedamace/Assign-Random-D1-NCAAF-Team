@@ -1,0 +1,12 @@
+{
+  "state": {
+    "running": false,
+    "speedMs": 30,
+    "linePauseMs": 250,
+    "picks": [],
+    "players": [],
+    "lastUpdated": 0
+  },
+  "admins": {},
+  "users": {}
+}
