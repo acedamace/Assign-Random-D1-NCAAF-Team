@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Synced Random Team Assignments (12 of 265)</title>
+<style>
+  :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--text)}
+  .wrap{max-width:1100px;margin:36px auto;padding:0 16px}
+  h1{margin:0 0 10px;font-size:28px}
+  p{color:var(--muted);margin:0 0 18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
+  label{font-size:13px;color:var(--muted);display:block;margin-bottom:8px}
+  textarea,input,button{width:100%}
+  textarea{height:280px;resize:vertical;border:1px solid #2a3252;background:#0f1530;color:var(--text);border-radius:10px;padding:10px 12px;font-family:ui-monospace,Consolas,Menlo,monospace}
+  .row{display:flex;gap:10px;align-items:center}
+  .row>*{flex:1}
+  .btn{background:#1d2544;color:var(--text);border:1px solid #2a3252;border-radius:10px;padding:10px 14px;cursor:pointer;transition:.15s transform ease,.15s opacity ease}
+  .btn:hover{transform:translateY(-1px);opacity:.95}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.primary{background:var(--accent);color:#0a0e1f;border-color:#5b86ff}
+  .muted{color:var(--muted);font-size:13px}
+  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:380px;overflow:auto;white-space:pre-wrap}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1d2544;color:#cfe0ff;font-size:12px;margin-left:8px}
+  .pill{background:#101736;border:1px solid #2a3252;padding:8px 10px;border-radius:10px}
+  .footer{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .small{font-size:12px;color:#a9afd1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Random Team Assignments <span class="badge">12 of 265</span></h1>
+  <p>This version is <strong>synced via Firebase</strong>. Everyone sees the same draw. Viewers sign in anonymously; admins (by UID) can control.</p>
+
+  <div class="grid">
+    <div class="card">
+      <label>Teams (one per line) <span class="muted">(expects 265 lines; blanks ignored; duplicates removed)</span></label>
+      <textarea id="teams"></textarea>
+
+      <div class="row" style="margin-top:10px">
+        <div class="pill">
+          <label for="players" style="margin:0 0 6px">Players (comma-separated; exactly 12)</label>
+          <input id="players" value="Player 1, Player 2, Player 3, Player 4, Player 5, Player 6, Player 7, Player 8, Player 9, Player 10, Player 11, Player 12" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div class="pill">
+          <label>Speed (ms / char)</label>
+          <input id="speed" type="range" min="5" max="120" value="30" />
+        </div>
+        <div class="pill">
+          <label>Pause between lines (ms)</label>
+          <input id="linePause" type="number" min="0" value="250" />
+        </div>
+      </div>
+
+      <div class="footer">
+        <button id="start" class="btn primary" disabled>Start</button>
+        <button id="stop" class="btn" disabled>Stop</button>
+        <button id="reroll" class="btn" disabled>Re-Roll</button>
+        <button id="copy" class="btn">Copy Output</button>
+        <button id="csv" class="btn">Export CSV</button>
+        <span id="status" class="muted"></span>
+      </div>
+      <div id="audience" class="small" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <label>Output</label>
+      <div id="out" class="out"></div>
+      <div class="footer">
+        <span class="muted">Hotkeys: <strong>Space</strong> Start/Stop, <strong>R</strong> Re-Roll</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  // -------- Firebase SDK --------
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+  // TODO: replace with your Firebase web app config
+  const firebaseConfig = {
+    apiKey: "YOUR_KEY",
+    authDomain: "YOUR_APP.firebaseapp.com",
+    databaseURL: "https://YOUR_APP-default-rtdb.firebaseio.com",
+    projectId: "YOUR_APP",
+    appId: "YOUR_APP_ID"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getDatabase(app);
+
+  // -------- UI handles --------
+  const out = document.getElementById('out');
+  const statusEl = document.getElementById('status');
+  const audEl = document.getElementById('audience');
+  const teamsEl = document.getElementById('teams');
+  const playersEl = document.getElementById('players');
+  const speedEl = document.getElementById('speed');
+  const pauseEl = document.getElementById('linePause');
+  const startBtn = document.getElementById('start');
+  const stopBtn = document.getElementById('stop');
+  const rerollBtn = document.getElementById('reroll');
+  const copyBtn = document.getElementById('copy');
+  const csvBtn = document.getElementById('csv');
+
+  // -------- Helpers --------
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const by = (n) => String(n).padStart(3, ' ');
+  function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+  function parseTeams(){
+    const raw = teamsEl.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    const seen=new Set(), out=[]; for(const t of raw){ if(!seen.has(t)){seen.add(t); out.push(t);} }
+    return out;
+  }
+  function parsePlayers(){
+    return playersEl.value.split(',').map(s=>s.trim()).filter(Boolean);
+  }
+  function pick12(n){ const idx=[...Array(n).keys()].map(i=>i+1); return shuffle(idx).slice(0,12).sort((a,b)=>a-b); }
+
+  // -------- Auth: anonymous + name/initials prompt --------
+  let myUID = null, myName = "Viewer", isController = false, runningLocal = false;
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { await signInAnonymously(auth); return; }
+    myUID = user.uid;
+    await ensureDisplayName();
+    await detectControllerRole();
+    statusEl.textContent = (isController ? 'Controller' : 'Viewer') + `: ${myName} (UID ${myUID.slice(0,8)}…)`;
+  });
+
+  async function ensureDisplayName(){
+    const snap = await get(ref(db, `users/${myUID}`));
+    const existing = snap.exists() ? snap.val().displayName : null;
+    if (existing) { myName = existing; return; }
+    let name = (prompt("Enter your name or initials (shown to host):")||"").trim().slice(0,24);
+    if (!name) name = "Viewer";
+    await set(ref(db, `users/${myUID}`), { displayName: name, joinedAt: Date.now() });
+    myName = name;
+  }
+
+  async function detectControllerRole(){
+    const s = await get(ref(db, `admins/${myUID}`));
+    isController = s.exists() && s.val() === true;
+    startBtn.disabled = stopBtn.disabled = rerollBtn.disabled = !isController;
+  }
+
+  // Live role change (manual promotion/removal)
+  onValue(ref(db, `admins/${myUID}`), (s) => {
+    const now = s.exists() && s.val() === true;
+    if (now !== isController) {
+      isController = now;
+      startBtn.disabled = stopBtn.disabled = rerollBtn.disabled = !isController;
+      statusEl.textContent = (isController ? 'Controller' : 'Viewer') + `: ${myName} (UID ${myUID.slice(0,8)}…)`;
+    }
+  });
+
+  // Optional audience list (names + short UIDs) to help you promote manually in Console
+  onValue(ref(db, 'users'), (snap) => {
+    const users = snap.val() || {};
+    const list = Object.entries(users).map(([uid,u]) => `${(u.displayName||'Viewer')} — ${uid.slice(0,8)}…`);
+    audEl.textContent = 'Connected (saved once on first visit): ' + (list.length ? list.join(' | ') : '—');
+  });
+
+  // -------- Synced state listener --------
+  onValue(ref(db, 'state'), async (snap) => {
+    const s = snap.val(); if (!s) return;
+    const teams = parseTeams();
+    const picks = Array.isArray(s.picks) ? s.picks : [];
+    const players = Array.isArray(s.players) ? s.players : [];
+    const charDelay = Number(speedEl.value||30), pauseMs = Number(pauseEl.value||250);
+
+    out.textContent = "Random Team Assignments:\n\n";
+    runningLocal = !!s.running;
+
+    for (let i=0; i<Math.min(picks.length, players.length); i++){
+      const idx = picks[i]-1;
+      const line = `${players[i].padEnd(10)} -> ${by(picks[i])} - ${teams[idx] || "??"}\n`;
+      if (runningLocal){
+        for (const ch of line){ if (!runningLocal) break; out.textContent += ch; await sleep(charDelay); }
+        if (!runningLocal) break;
+        await sleep(pauseMs);
+      } else {
+        out.textContent += line;
+      }
+    }
+    statusEl.textContent = (runningLocal ? 'Live (synced) — ' : '') + (isController ? `Controller: ${myName}` : `Viewer: ${myName}`);
+  });
+
+  // -------- Controller writes (manual promotion via Console only) --------
+  async function writeState(patch){
+    if (!isController) return; // local guard; rules enforce server-side too
+    await update(ref(db, 'state'), { ...patch, lastUpdated: Date.now() });
+  }
+
+  startBtn.addEventListener('click', async () => {
+    const teams = parseTeams(); if (teams.length < 265){ alert('Paste all 265 teams first.'); return; }
+    const players = parsePlayers(); if (players.length !== 12){ alert('Provide exactly 12 players.'); return; }
+    const picks = pick12(teams.length);
+    await writeState({ running:true, picks, players, speedMs:Number(speedEl.value||30), linePauseMs:Number(pauseEl.value||250) });
+  });
+  stopBtn.addEventListener('click',  async () => { runningLocal = false; await writeState({ running:false }); });
+  rerollBtn.addEventListener('click', async () => {
+    const teams = parseTeams(); const players = parsePlayers();
+    if (teams.length < 265 || players.length !== 12) return;
+    const picks = pick12(teams.length);
+    await writeState({ running:true, picks, players });
+  });
+
+  // Copy / CSV
+  document.getElementById('copy').addEventListener('click', async ()=>{
+    await navigator.clipboard.writeText(out.textContent);
+    statusEl.textContent = 'Output copied'; setTimeout(()=>statusEl.textContent='',1500);
+  });
+  document.getElementById('csv').addEventListener('click', ()=>{
+    const lines = out.textContent.trim().split('\n').slice(2).filter(x=>x.includes('->'));
+    const rows = lines.map(line=>{
+      const [left, right] = line.split('->').map(s=>s.trim());
+      const [num, ...teamParts] = right.split(' - ');
+      const team = teamParts.join(' - ');
+      return `"${left}","${num}","${team}"`;
+    }).join('\n');
+    const csv = "Player,TeamNumber,Team\n"+rows+"\n";
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='assignments.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  });
+
+  // Hotkeys
+  document.addEventListener('keydown', (e)=>{
+    if (e.code==='Space'){ e.preventDefault(); runningLocal ? stopBtn.click() : startBtn.click(); }
+    if (e.key.toLowerCase()==='r'){ e.preventDefault(); rerollBtn.click(); }
+  });
+
+  // --- Demo teams placeholder (replace with your 265 lines) ---
+  const demoTeams = `
+Abilene Christian
+Air Force
+Akron
+Alabama
+Alabama A&M
+Alabama State
+Albany
+Alcorn State
+Appalachian State
+Arizona
+Arizona State
+Arkansas
+Arkansas State
+Army
+Auburn
+Austin Peay
+Ball State
+Baylor
+Boise State
+Boston College
+Bowling Green
+... (paste the rest of your 265 lines here) ...
+`;
+  teamsEl.value = demoTeams.trim();
+</script>
+</body>
+</html>
