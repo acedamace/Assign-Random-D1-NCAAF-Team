@@ -1,1 +1,297 @@
-<!doctype html> <html lang="en"> <head> <meta charset="utf-8" /> <meta name="viewport" content="width=device-width, initial-scale=1" /> <title>Synced Random Team Assignments (Read-Only Data)</title> <style> :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; } *{box-sizing:border-box} body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--text)} .wrap{max-width:1000px;margin:36px auto;padding:0 16px} h1{margin:0 0 10px;font-size:28px} p{color:var(--muted);margin:0 0 18px} .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px} @media(max-width:900px){.grid{grid-template-columns:1fr}} .card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.25)} .btn{background:#1d2544;color:var(--text);border:1px solid #2a3252;border-radius:10px;padding:10px 14px;cursor:pointer} .btn.primary{background:var(--accent);color:#0a0e1f;border-color:#5b86ff} .btn:disabled{opacity:.5;cursor:not-allowed} .muted{color:var(--muted);font-size:13px} .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:380px;overflow:auto;white-space:pre-wrap} .row{display:flex;gap:10px;align-items:center;margin-top:10px} input[type="range"], input[type="number"]{width:100%} .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1d2544;color:#cfe0ff;font-size:12px;margin-left:8px} .small{font-size:12px;color:#a9afd1} ul{margin:6px 0 0 18px;padding:0} </style> </head> <body> <div class="wrap"> <h1>Random Team Assignments <span class="badge">12 of 265</span></h1> <p>Teams & players are <strong>fixed</strong> in code (read-only). Controllers (UIDs in <code>/admins</code>) can Start/Stop/Re-Roll; everyone else is a synced viewer.</p> <div class="grid"> <div class="card"> <div class="row"> <div style="flex:1"> <div class="muted">Speed (ms / char)</div> <input id="speed" type="range" min="5" max="120" value="30" /> </div> <div style="flex:1"> <div class="muted">Pause between lines (ms)</div> <input id="linePause" type="number" min="0" value="250" /> </div> </div> <div class="row"> <button id="start" class="btn primary" disabled>Start</button> <button id="stop" class="btn" disabled>Stop</button> <button id="reroll" class="btn" disabled>Re-Roll</button> <button id="copy" class="btn">Copy Output</button> <button id="csv" class="btn">Export CSV</button> </div> <div class="row"> <div class="muted" id="status">Connecting…</div> </div> <div class="row"> <div class="small" id="audience"></div> </div> <div class="row" style="align-items:flex-start"> <div style="flex:1"> <div class="muted">Players (fixed)</div> <ul id="playersList"></ul> </div> <div style="flex:1"> <div class="muted">Teams loaded</div> <div class="small" id="teamsCount"></div> </div> </div> </div> <div class="card"> <div class="muted">Output</div> <div id="out" class="out"></div> <div class="muted" style="margin-top:8px">Hotkeys: <strong>Space</strong> Start/Stop, <strong>R</strong> Re-Roll</div> </div> </div> </div> <script type="module"> /* ======== READ-ONLY DATA (your lists) ======== */ const TEAMS = [ "Abilene Christian","Air Force","Akron","Alabama","Alabama A&M","Alabama State", "Albany","Alcorn State","Appalachian State","Arizona","Arizona State","Arkansas", "Arkansas State","Arkansas-Pine Bluff","Army","Auburn","Austin Peay","Ball State", "Baylor","Bethune-Cookman","Boise State","Boston College","Bowling Green","Brown", "Bryant","Bucknell","Buffalo","Butler","BYU","Cal Poly","Cal","Campbell", "Central Arkansas","Central Connecticut","Central Michigan","Charleston Southern", "Charlotte","Chattanooga","Cincinnati","Clemson","Coastal Carolina","Colgate", "Colorado","Colorado State","Columbia","Cornell","Dartmouth","Davidson","Dayton", "Delaware","Delaware State","Drake","Duke","Duquesne","East Carolina", "East Tennessee State","Eastern Illinois","Eastern Kentucky","Eastern Michigan", "Eastern Washington","Elon","FIU","Florida","Florida A&M","Florida Atlantic", "Florida State","Fordham","Fresno State","Furman","Gardner-Webb","Georgetown", "Georgia","Georgia Southern","Georgia State","Georgia Tech","Grambling State", "Hampton","Harvard","Hawai'i","Holy Cross","Houston","Houston Christian","Howard", "Idaho","Idaho State","Illinois","Illinois State","Incarnate Word","Indiana", "Indiana State","Iowa","Iowa State","Jackson State","James Madison","Kansas", "Kansas State","Kent State","Kennesaw State","Kentucky","Lafayette","Lamar", "Lehigh","Liberty","LIU","Louisiana","Louisiana-Monroe","Louisiana Tech", "Louisville","LSU","Maine","Marist","Marshall","Maryland","Massachusetts (UMass)", "McNeese State","Memphis","Mercer","Merrimack","Miami (FL)","Miami (OH)","Michigan", "Michigan State","Middle Tennessee","Minnesota","Mississippi State", "Mississippi Valley State","Missouri","Missouri State","Monmouth","Montana", "Montana State","Morehead State","Morgan State","Murray State","Navy","Nebraska", "Nevada","New Hampshire","New Haven","New Mexico","New Mexico State","Nicholls State", "Norfolk State","North Alabama","North Carolina","North Carolina A&T", "North Carolina Central","North Carolina State","North Dakota","North Dakota State", "North Texas","Northern Arizona","Northern Colorado","Northern Illinois", "Northern Iowa","Northwestern","Northwestern State","Notre Dame","Ohio","Ohio State", "Oklahoma","Oklahoma State","Old Dominion","Ole Miss","Oregon","Oregon State", "Penn","Penn State","Pittsburgh","Portland State","Prairie View A&M","Presbyterian", "Princeton","Rhode Island","Rice","Richmond","Robert Morris","Rutgers", "Sacramento State","Sacred Heart","Saint Francis (PA)","Samford","Sam Houston", "San Diego","San Diego State","San Jose State","SMU","South Alabama","South Carolina", "South Carolina State","South Dakota","South Dakota State","South Florida", "Southeast Missouri State","Southeastern Louisiana","Southern","Southern Illinois", "Southern Miss","Southern Utah","Stanford","Stephen F. Austin","Stetson","Stonehill", "Stony Brook","Syracuse","TCU","Temple","Tennessee","Tennessee State", "Tennessee Tech","Texas","Texas A&M","Texas A&M-Commerce","Texas Southern", "Texas State","Texas Tech","The Citadel","Toledo","Towson","Troy","Tulane","Tulsa", "UC Davis","UAB","UCF","UCLA","UConn","UNLV","USC","Utah","Utah State", "Utah Tech","UTEP","UT Martin","UT Rio Grande Valley","UTSA","Valparaiso", "Vanderbilt","Villanova","Virginia","Virginia Tech","VMI","Wagner","Wake Forest", "Washington","Washington State","Weber State","West Georgia","West Virginia", "Western Carolina","Western Illinois","Western Kentucky","Western Michigan", "William & Mary","Wisconsin","Wofford","Wyoming","Yale","Youngstown State" ]; const PLAYERS = [ "AP","AW","CR","JW","MS","LL","Josh","FAB","JJ","EJ","DA","CO" ]; /* ============================================ */ // Render read-only lists to UI const playersListEl = document.getElementById('playersList'); playersListEl.innerHTML = PLAYERS.map(p => `<li>${p}</li>`).join(''); document.getElementById('teamsCount').textContent = `${TEAMS.length} teams loaded`; // Firebase SDK (CDN) — only the pieces we need import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"; import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"; import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js"; // Your Firebase web app config const firebaseConfig = { apiKey: "AIzaSyAmgCkDpIN-YNALQOb8HTb7WJn1bX0i9qA", authDomain: "draft-sync.firebaseapp.com", databaseURL: "https://draft-sync-default-rtdb.firebaseio.com", projectId: "draft-sync", storageBucket: "draft-sync.firebasestorage.app", messagingSenderId: "234722685207", appId: "1:234722685207:web:abc660fa65a105ecdbc752" }; const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getDatabase(app); // UI refs const out = document.getElementById('out'); const statusEl = document.getElementById('status'); const audEl = document.getElementById('audience'); const speedEl = document.getElementById('speed'); const pauseEl = document.getElementById('linePause'); const startBtn = document.getElementById('start'); const stopBtn = document.getElementById('stop'); const rerollBtn = document.getElementById('reroll'); const copyBtn = document.getElementById('copy'); const csvBtn = document.getElementById('csv'); // Helpers const sleep = (ms) => new Promise(r => setTimeout(r, ms)); const by = (n) => String(n).padStart(3, ' '); function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a} function pick12(n){ const idx=[...Array(n).keys()].map(i=>i+1); return shuffle(idx).slice(0,12).sort((a,b)=>a-b); } // Auth: anonymous + name/initials prompt, stored under /users/<uid> let myUID=null, myName="Viewer", isController=false, runningLocal=false; onAuthStateChanged(auth, async (user) => { if (!user) { await signInAnonymously(auth); return; } myUID = user.uid; await ensureDisplayName(); await detectControllerRole(); statusEl.textContent = (isController ? 'Controller' : 'Viewer') + `: ${myName} (UID ${myUID.slice(0,8)}…)`; }); async function ensureDisplayName(){ const snap = await get(ref(db, `users/${myUID}`)); const existing = snap.exists() ? snap.val().displayName : null; if (existing) { myName = existing; return; } let name = (prompt("Enter your name or initials (shown to host):")||"").trim().slice(0,24); if (!name) name = "Viewer"; await set(ref(db, `users/${myUID}`), { displayName: name, joinedAt: Date.now() }); myName = name; } async function detectControllerRole(){ const s = await get(ref(db, `admins/${myUID}`)); isController = s.exists() && s.val() === true; startBtn.disabled = stopBtn.disabled = rerollBtn.disabled = !isController; } // Live role change (manual promotion/removal via /admins) onValue(ref(db, `admins/${myUID}`), (s) => { const now = s.exists() && s.val() === true; if (now !== isController) { isController = now; startBtn.disabled = stopBtn.disabled = rerollBtn.disabled = !isController; statusEl.textContent = (isController ? 'Controller' : 'Viewer') + `: ${myName} (UID ${myUID.slice(0,8)}…)`; } }); // Audience list (names + short UIDs) — helps you promote in Console onValue(ref(db, 'users'), (snap) => { const users = snap.val() || {}; const list = Object.entries(users).map(([uid,u]) => `${(u.displayName||'Viewer')} — ${uid.slice(0,8)}…`); audEl.textContent = 'Connected (saved on first visit): ' + (list.length ? list.join(' | ') : '—'); }); // Sync state to all clients onValue(ref(db, 'state'), async (snap) => { const s = snap.val(); if (!s) return; const picks = Array.isArray(s.picks) ? s.picks : []; const players = Array.isArray(s.players) ? s.players : []; const charDelay = Number(speedEl.value||30), pauseMs = Number(pauseEl.value||250); out.textContent = "Random Team Assignments:\n\n"; runningLocal = !!s.running; for (let i=0; i<Math.min(picks.length, players.length); i++){ const idx = picks[i]-1; const line = `${players[i].padEnd(10)} -> ${by(picks[i])} - ${TEAMS[idx] || "??"}\n`; if (runningLocal){ for (const ch of line){ if (!runningLocal) break; out.textContent += ch; await sleep(charDelay); } if (!runningLocal) break; await sleep(pauseMs); } else { out.textContent += line; } } statusEl.textContent = (runningLocal ? 'Live (synced) — ' : '') + (isController ? `Controller: ${myName}` : `Viewer: ${myName}`); }); // Controller writes (manual promotion via /admins only) async function writeState(patch){ if (!isController) return; await update(ref(db, 'state'), { ...patch, lastUpdated: Date.now() }); } // Buttons startBtn.addEventListener('click', async () => { if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265 items.'); return; } if (PLAYERS.length !== 12){ alert('PLAYERS must be exactly 12.'); return; } const picks = pick12(TEAMS.length); await writeState({ running:true, picks, players: shuffle(PLAYERS) }); }); stopBtn.addEventListener('click', async () => { runningLocal = false; await writeState({ running:false }); }); rerollBtn.addEventListener('click', async () => { if (TEAMS.length !== 265 || PLAYERS.length !== 12) return; const picks = pick12(TEAMS.length); await writeState({ running:true, picks, players: shuffle(PLAYERS) }); }); // Copy / CSV copyBtn.addEventListener('click', async ()=>{ await navigator.clipboard.writeText(out.textContent); statusEl.textContent = 'Output copied'; setTimeout(()=>statusEl.textContent='',1500); }); csvBtn.addEventListener('click', ()=>{ const lines = out.textContent.trim().split('\n').slice(2).filter(x=>x.includes('->')); const rows = lines.map(line=>{ const [left, right] = line.split('->').map(s=>s.trim()); const [num, ...teamParts] = right.split(' - '); const team = teamParts.join(' - '); return `"${left}","${num}","${team}"`; }).join('\n'); const csv = "Player,TeamNumber,Team\n"+rows+"\n"; const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='assignments.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }); // Hotkeys document.addEventListener('keydown', (e)=>{ if (e.code==='Space'){ e.preventDefault(); runningLocal ? stopBtn.click() : startBtn.click(); } if (e.key.toLowerCase()==='r'){ e.preventDefault(); rerollBtn.click(); } }); </script> </body> </html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Synced Random Team Assignments (Read-Only Data)</title>
+<style>
+  :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--text)}
+  .wrap{max-width:1000px;margin:36px auto;padding:0 16px}
+  h1{margin:0 0 10px;font-size:28px}
+  p{color:var(--muted);margin:0 0 18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
+  .btn{background:#1d2544;color:var(--text);border:1px solid #2a3252;border-radius:10px;padding:10px 14px;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#0a0e1f;border-color:#5b86ff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .muted{color:var(--muted);font-size:13px}
+  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:380px;overflow:auto;white-space:pre-wrap}
+  .row{display:flex;gap:10px;align-items:center;margin-top:10px}
+  input[type="range"], input[type="number"]{width:100%}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1d2544;color:#cfe0ff;font-size:12px;margin-left:8px}
+  .small{font-size:12px;color:#a9afd1}
+  ul{margin:6px 0 0 18px;padding:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Random Team Assignments <span class="badge">12 of 265</span></h1>
+  <p>Teams & players are <strong>fixed</strong> in code (read-only). Controllers (UIDs in <code>/admins</code>) can Start/Stop/Re-Roll; everyone else is a synced viewer.</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row">
+        <div style="flex:1">
+          <div class="muted">Speed (ms / char)</div>
+          <input id="speed" type="range" min="5" max="120" value="30" />
+        </div>
+        <div style="flex:1">
+          <div class="muted">Pause between lines (ms)</div>
+          <input id="linePause" type="number" min="0" value="250" />
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="start" class="btn primary" disabled>Start</button>
+        <button id="stop" class="btn" disabled>Stop</button>
+        <button id="reroll" class="btn" disabled>Re-Roll</button>
+        <button id="copy" class="btn">Copy Output</button>
+        <button id="csv" class="btn">Export CSV</button>
+      </div>
+
+      <div class="row">
+        <div class="muted" id="status">Connecting…</div>
+      </div>
+
+      <div class="row">
+        <div class="small" id="audience"></div>
+      </div>
+
+      <div class="row" style="align-items:flex-start">
+        <div style="flex:1">
+          <div class="muted">Players (fixed)</div>
+          <ul id="playersList"></ul>
+        </div>
+        <div style="flex:1">
+          <div class="muted">Teams loaded</div>
+          <div class="small" id="teamsCount"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="muted">Output</div>
+      <div id="out" class="out"></div>
+      <div class="muted" style="margin-top:8px">Hotkeys: <strong>Space</strong> Start/Stop, <strong>R</strong> Re-Roll</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  /* ======== READ-ONLY DATA (your lists) ======== */
+  const TEAMS = [
+    "Abilene Christian","Air Force","Akron","Alabama","Alabama A&M","Alabama State",
+    "Albany","Alcorn State","Appalachian State","Arizona","Arizona State","Arkansas",
+    "Arkansas State","Arkansas-Pine Bluff","Army","Auburn","Austin Peay","Ball State",
+    "Baylor","Bethune-Cookman","Boise State","Boston College","Bowling Green","Brown",
+    "Bryant","Bucknell","Buffalo","Butler","BYU","Cal Poly","Cal","Campbell",
+    "Central Arkansas","Central Connecticut","Central Michigan","Charleston Southern",
+    "Charlotte","Chattanooga","Cincinnati","Clemson","Coastal Carolina","Colgate",
+    "Colorado","Colorado State","Columbia","Cornell","Dartmouth","Davidson","Dayton",
+    "Delaware","Delaware State","Drake","Duke","Duquesne","East Carolina",
+    "East Tennessee State","Eastern Illinois","Eastern Kentucky","Eastern Michigan",
+    "Eastern Washington","Elon","FIU","Florida","Florida A&M","Florida Atlantic",
+    "Florida State","Fordham","Fresno State","Furman","Gardner-Webb","Georgetown",
+    "Georgia","Georgia Southern","Georgia State","Georgia Tech","Grambling State",
+    "Hampton","Harvard","Hawai'i","Holy Cross","Houston","Houston Christian","Howard",
+    "Idaho","Idaho State","Illinois","Illinois State","Incarnate Word","Indiana",
+    "Indiana State","Iowa","Iowa State","Jackson State","James Madison","Kansas",
+    "Kansas State","Kent State","Kennesaw State","Kentucky","Lafayette","Lamar",
+    "Lehigh","Liberty","LIU","Louisiana","Louisiana-Monroe","Louisiana Tech",
+    "Louisville","LSU","Maine","Marist","Marshall","Maryland","Massachusetts (UMass)",
+    "McNeese State","Memphis","Mercer","Merrimack","Miami (FL)","Miami (OH)","Michigan",
+    "Michigan State","Middle Tennessee","Minnesota","Mississippi State",
+    "Mississippi Valley State","Missouri","Missouri State","Monmouth","Montana",
+    "Montana State","Morehead State","Morgan State","Murray State","Navy","Nebraska",
+    "Nevada","New Hampshire","New Haven","New Mexico","New Mexico State","Nicholls State",
+    "Norfolk State","North Alabama","North Carolina","North Carolina A&T",
+    "North Carolina Central","North Carolina State","North Dakota","North Dakota State",
+    "North Texas","Northern Arizona","Northern Colorado","Northern Illinois",
+    "Northern Iowa","Northwestern","Northwestern State","Notre Dame","Ohio","Ohio State",
+    "Oklahoma","Oklahoma State","Old Dominion","Ole Miss","Oregon","Oregon State",
+    "Penn","Penn State","Pittsburgh","Portland State","Prairie View A&M","Presbyterian",
+    "Princeton","Rhode Island","Rice","Richmond","Robert Morris","Rutgers",
+    "Sacramento State","Sacred Heart","Saint Francis (PA)","Samford","Sam Houston",
+    "San Diego","San Diego State","San Jose State","SMU","South Alabama","South Carolina",
+    "South Carolina State","South Dakota","South Dakota State","South Florida",
+    "Southeast Missouri State","Southeastern Louisiana","Southern","Southern Illinois",
+    "Southern Miss","Southern Utah","Stanford","Stephen F. Austin","Stetson","Stonehill",
+    "Stony Brook","Syracuse","TCU","Temple","Tennessee","Tennessee State",
+    "Tennessee Tech","Texas","Texas A&M","Texas A&M-Commerce","Texas Southern",
+    "Texas State","Texas Tech","The Citadel","Toledo","Towson","Troy","Tulane","Tulsa",
+    "UC Davis","UAB","UCF","UCLA","UConn","UNLV","USC","Utah","Utah State",
+    "Utah Tech","UTEP","UT Martin","UT Rio Grande Valley","UTSA","Valparaiso",
+    "Vanderbilt","Villanova","Virginia","Virginia Tech","VMI","Wagner","Wake Forest",
+    "Washington","Washington State","Weber State","West Georgia","West Virginia",
+    "Western Carolina","Western Illinois","Western Kentucky","Western Michigan",
+    "William & Mary","Wisconsin","Wofford","Wyoming","Yale","Youngstown State"
+  ];
+
+  const PLAYERS = [
+    "AP","AW","CR","JW","MS","LL","Josh","FAB","JJ","EJ","DA","CO"
+  ];
+  /* ============================================ */
+
+  // Render read-only lists to UI
+  const playersListEl = document.getElementById('playersList');
+  playersListEl.innerHTML = PLAYERS.map(p => `<li>${p}</li>`).join('');
+  document.getElementById('teamsCount').textContent = `${TEAMS.length} teams loaded`;
+
+  // Firebase SDK (CDN) — only the pieces we need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+  // Your Firebase web app config
+  const firebaseConfig = {
+    apiKey: "AIzaSyAmgCkDpIN-YNALQOb8HTb7WJn1bX0i9qA",
+    authDomain: "draft-sync.firebaseapp.com",
+    databaseURL: "https://draft-sync-default-rtdb.firebaseio.com",
+    projectId: "draft-sync",
+    storageBucket: "draft-sync.firebasestorage.app",
+    messagingSenderId: "234722685207",
+    appId: "1:234722685207:web:abc660fa65a105ecdbc752"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getDatabase(app);
+
+  // UI refs
+  const out = document.getElementById('out');
+  const statusEl = document.getElementById('status');
+  const audEl = document.getElementById('audience');
+  const speedEl = document.getElementById('speed');
+  const pauseEl = document.getElementById('linePause');
+  const startBtn = document.getElementById('start');
+  const stopBtn = document.getElementById('stop');
+  const rerollBtn = document.getElementById('reroll');
+  const copyBtn = document.getElementById('copy');
+  const csvBtn = document.getElementById('csv');
+
+  // Helpers
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const by = (n) => String(n).padStart(3, ' ');
+  function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+  function pick12(n){ const idx=[...Array(n).keys()].map(i=>i+1); return shuffle(idx).slice(0,12).sort((a,b)=>a-b); }
+
+  // Auth: anonymous + name/initials prompt, stored under /users/<uid>
+  let myUID=null, myName="Viewer", isController=false, runningLocal=false;
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { await signInAnonymously(auth); return; }
+    myUID = user.uid;
+    await ensureDisplayName();
+    await detectControllerRole();
+    statusEl.textContent = (isController ? 'Controller' : 'Viewer') + `: ${myName} (UID ${myUID.slice(0,8)}…)`;
+  });
+
+  async function ensureDisplayName(){
+    const snap = await get(ref(db, `users/${myUID}`));
+    const existing = snap.exists() ? snap.val().displayName : null;
+    if (existing) { myName = existing; return; }
+    let name = (prompt("Enter your name or initials (shown to host):")||"").trim().slice(0,24);
+    if (!name) name = "Viewer";
+    await set(ref(db, `users/${myUID}`), { displayName: name, joinedAt: Date.now() });
+    myName = name;
+  }
+
+  async function detectControllerRole(){
+    const s = await get(ref(db, `admins/${myUID}`));
+    isController = s.exists() && s.val() === true;
+    startBtn.disabled = stopBtn.disabled = rerollBtn.disabled = !isController;
+  }
+
+  // Live role change (manual promotion/removal via /admins)
+  onValue(ref(db, `admins/${myUID}`), (s) => {
+    const now = s.exists() && s.val() === true;
+    if (now !== isController) {
+      isController = now;
+      startBtn.disabled = stopBtn.disabled = rerollBtn.disabled = !isController;
+      statusEl.textContent = (isController ? 'Controller' : 'Viewer') + `: ${myName} (UID ${myUID.slice(0,8)}…)`;
+    }
+  });
+
+  // Audience list (names + short UIDs) — helps you promote in Console
+  onValue(ref(db, 'users'), (snap) => {
+    const users = snap.val() || {};
+    const list = Object.entries(users).map(([uid,u]) => `${(u.displayName||'Viewer')} — ${uid.slice(0,8)}…`);
+    audEl.textContent = 'Connected (saved on first visit): ' + (list.length ? list.join(' | ') : '—');
+  });
+
+  // Sync state to all clients
+  onValue(ref(db, 'state'), async (snap) => {
+    const s = snap.val(); if (!s) return;
+    const picks = Array.isArray(s.picks) ? s.picks : [];
+    const players = Array.isArray(s.players) ? s.players : [];
+    const charDelay = Number(speedEl.value||30), pauseMs = Number(pauseEl.value||250);
+
+    out.textContent = "Random Team Assignments:\n\n";
+    runningLocal = !!s.running;
+
+    for (let i=0; i<Math.min(picks.length, players.length); i++){
+      const idx = picks[i]-1;
+      const line = `${players[i].padEnd(10)} -> ${by(picks[i])} - ${TEAMS[idx] || "??"}\n`;
+      if (runningLocal){
+        for (const ch of line){ if (!runningLocal) break; out.textContent += ch; await sleep(charDelay); }
+        if (!runningLocal) break;
+        await sleep(pauseMs);
+      } else {
+        out.textContent += line;
+      }
+    }
+    statusEl.textContent = (runningLocal ? 'Live (synced) — ' : '') + (isController ? `Controller: ${myName}` : `Viewer: ${myName}`);
+  });
+
+  // Controller writes (manual promotion via /admins only)
+  async function writeState(patch){
+    if (!isController) return;
+    await update(ref(db, 'state'), { ...patch, lastUpdated: Date.now() });
+  }
+
+  // Buttons
+  startBtn.addEventListener('click', async () => {
+    if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265 items.'); return; }
+    if (PLAYERS.length !== 12){ alert('PLAYERS must be exactly 12.'); return; }
+    const picks = pick12(TEAMS.length);
+    await writeState({ running:true, picks, players: shuffle(PLAYERS) });
+  });
+
+  stopBtn.addEventListener('click',  async () => { runningLocal = false; await writeState({ running:false }); });
+
+  rerollBtn.addEventListener('click', async () => {
+    if (TEAMS.length !== 265 || PLAYERS.length !== 12) return;
+    const picks = pick12(TEAMS.length);
+    await writeState({ running:true, picks, players: shuffle(PLAYERS) });
+  });
+
+  // Copy / CSV
+  copyBtn.addEventListener('click', async ()=>{
+    await navigator.clipboard.writeText(out.textContent);
+    statusEl.textContent = 'Output copied'; setTimeout(()=>statusEl.textContent='',1500);
+  });
+  csvBtn.addEventListener('click', ()=>{
+    const lines = out.textContent.trim().split('\n').slice(2).filter(x=>x.includes('->'));
+    const rows = lines.map(line=>{
+      const [left, right] = line.split('->').map(s=>s.trim());
+      const [num, ...teamParts] = right.split(' - ');
+      const team = teamParts.join(' - ');
+      return `"${left}","${num}","${team}"`;
+    }).join('\n');
+    const csv = "Player,TeamNumber,Team\n"+rows+"\n";
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='assignments.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  });
+
+  // Hotkeys
+  document.addEventListener('keydown', (e)=>{
+    if (e.code==='Space'){ e.preventDefault(); runningLocal ? stopBtn.click() : startBtn.click(); }
+    if (e.key.toLowerCase()==='r'){ e.preventDefault(); rerollBtn.click(); }
+  });
+</script>
+</body>
+</html>
