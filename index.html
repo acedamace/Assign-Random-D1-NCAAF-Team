@@ -4,6 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Synced Random Team Assignments (Read-Only Data)</title>
+  <!--.oit{   height:380px;-->
+  
 <style>
   :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; }
   *{box-sizing:border-box}
@@ -18,7 +20,9 @@
   .btn.primary{background:var(--accent);color:#0a0e1f;border-color:#5b86ff}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   .muted{color:var(--muted);font-size:13px}
-  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:380px;overflow:auto;white-space:pre-wrap}
+  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;
+       height: 60vh;
+       overflow:auto;white-space:pre-wrap}
   .row{display:flex;gap:10px;align-items:center;margin-top:10px}
   input[type="range"], input[type="number"]{width:100%}
   .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1d2544;color:#cfe0ff;font-size:12px;margin-left:8px}
@@ -29,7 +33,7 @@
 <body>
 <div class="wrap">
   <h1>Random Team Assignments <span class="badge">12 of 265 D1 Teams will be randomly selected.</span></h1>
-  <!-- <p>Teams & managers are <strong>fixed</strong> in code (read-only). Controllers (UIDs in <code>/admins</code>) can Start/Stop/Re-Roll; everyone else is a synced viewer.</p> -->
+  <!-- <p>Teams & managers are <strong>fixed</strong> in code (read-only). Controllers (UIDs in <code>/admins</code>) can Start/Finalize/Draw Once; everyone else is a synced viewer.</p> -->
 
   <div class="grid">
     <div class="card">
@@ -45,9 +49,9 @@
       </div>
 
       <div class="row">
-        <button id="start" class="btn primary" disabled>Start</button>
-        <button id="stop" class="btn" disabled>Stop</button>
-        <button id="reroll" class="btn" disabled>Re-Roll</button>
+        <button id="begin" class="btn primary" disabled>Begin</button>
+        <button id="finalize" class="btn" disabled>Finalize</button>
+        <button id="drawonce" class="btn" disabled>Draw Once</button>
         <button id="copy" class="btn">Copy Output</button>
         <button id="csv" class="btn">Export CSV</button>
       </div>
@@ -75,7 +79,7 @@
     <div class="card">
       <div class="muted">Output</div>
       <div id="out" class="out"></div>
-      <div class="muted" style="margin-top:8px">Hotkeys: <strong>Space</strong> Start/Stop, <strong>R</strong> Re-Roll</div>
+      <div class="muted" style="margin-top:8px">Hotkeys: <strong>Space</strong> Begin/Finalize, <strong>R</strong> Draw Once</div>
     </div>
   </div>
 </div>
@@ -164,9 +168,9 @@ const TEAMS = [
   const audEl = document.getElementById('audience');
   const speedEl = document.getElementById('speed');
   const pauseEl = document.getElementById('linePause');
-  const startBtn = document.getElementById('start');
-  const stopBtn = document.getElementById('stop');
-  const rerollBtn = document.getElementById('reroll');
+  const beginBtn = document.getElementById('begin');
+  const finalizeBtn = document.getElementById('finalize');
+  const drawonceBtn = document.getElementById('drawonce');
   const copyBtn = document.getElementById('copy');
   const csvBtn = document.getElementById('csv');
 
@@ -176,6 +180,13 @@ const TEAMS = [
   function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
   function pick12(n){ const idx=[...Array(n).keys()].map(i=>i+1); return shuffle(idx).slice(0,12).sort((a,b)=>a-b); }
 
+  /*//Globals?
+  let continuous = false;               // are we in continuous “Begin” mode?
+  let finalizeRequested = false;        // user pressed Finalize
+  let loopTimer = null;                 // timer between draws
+  let currentDrawStart = 0;             // ms timestamp when a draw was written
+  let currentDrawDuration = 0;          // exact ms this draw will take to render*/
+  
   // Auth: anonymous + name/initials prompt, stored under /users/<uid>
   let myUID=null, myName="Viewer", isController=false, runningLocal=false;
 
@@ -200,15 +211,33 @@ const TEAMS = [
   async function detectControllerRole(){
     const s = await get(ref(db, `admins/${myUID}`));
     isController = s.exists() && s.val() === true;
-    startBtn.disabled = stopBtn.disabled = rerollBtn.disabled = !isController;
+    beginBtn.disabled = finalizeBtn.disabled = drawonceBtn.disabled = !isController;
   }
 
+  /*// NEW ADDS-01
+  function formatLine(player, num, team) {
+  return `${player.padEnd(10)} -> ${String(num).padStart(3,' ')} - ${team}\n`;
+}
+
+function computeDrawDuration(picks, players, charDelay, linePause) {
+  // duration = sum(chars in all lines)*charDelay + linePause per line
+  let chars = 0;
+  for (let i = 0; i < picks.length; i++) {
+    const idx = picks[i] - 1;
+    const line = formatLine(players[i], picks[i], TEAMS[idx] || "??");
+    chars += line.length;
+  }
+  // pause after each line (matches your renderer)
+  return chars * charDelay + picks.length * linePause;
+}
+//END NEW ADDS-01*/
+  
   // Live role change (manual promotion/removal via /admins)
   onValue(ref(db, `admins/${myUID}`), (s) => {
     const now = s.exists() && s.val() === true;
     if (now !== isController) {
       isController = now;
-      startBtn.disabled = stopBtn.disabled = rerollBtn.disabled = !isController;
+      beginBtn.disabled = finalizeBtn.disabled = drawonceBtn.disabled = !isController;
       statusEl.textContent = (isController ? 'Controller' : 'Viewer') + `: ${myName} (UID ${myUID.slice(0,8)}…)`;
     }
   });
@@ -251,7 +280,7 @@ const TEAMS = [
   }
 
   // Buttons
-  startBtn.addEventListener('click', async () => {
+  beginBtn.addEventListener('click', async () => {
     //${TEAMS.length}
     if (TEAMS.length !== 265){ alert('There should be exactly 265 NCAAF D1 teams. There are currently ' + TEAMS.length + ' teams in the list.'); return; }
     if (MANAGERS.length !== 12){ alert('There should be exactly 12 managers. There are currently ' + MANAGERS.length + ' managers in the list.'); return; }
@@ -259,9 +288,9 @@ const TEAMS = [
     await writeState({ running:true, picks, managers: shuffle(MANAGERS) });
   });
 
-  stopBtn.addEventListener('click',  async () => { runningLocal = false; await writeState({ running:false }); });
+  finalizeBtn.addEventListener('click',  async () => { runningLocal = false; await writeState({ running:false }); });
 
-  rerollBtn.addEventListener('click', async () => {
+  drawonceBtn.addEventListener('click', async () => {
     if (TEAMS.length !== 265 || MANAGERS.length !== 12) return;
     const picks = pick12(TEAMS.length);
     await writeState({ running:true, picks, managers: shuffle(MANAGERS) });
@@ -288,8 +317,8 @@ const TEAMS = [
 
   // Hotkeys
   document.addEventListener('keydown', (e)=>{
-    if (e.code==='Space'){ e.preventDefault(); runningLocal ? stopBtn.click() : startBtn.click(); }
-    if (e.key.toLowerCase()==='r'){ e.preventDefault(); rerollBtn.click(); }
+    if (e.code==='Space'){ e.preventDefault(); runningLocal ? finalizeBtn.click() : beginBtn.click(); }
+    if (e.key.toLowerCase()==='r'){ e.preventDefault(); drawonceBtn.click(); }
   });
 </script>
 </body>
