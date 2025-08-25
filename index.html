@@ -136,7 +136,7 @@
     </div>
     <div class="small center" id="status">Connecting…</div>
     <div class="small center" id="audience"></div>
-    <div class="small center">Hotkeys: <b>Space</b> Begin/stop (Executor) • <b>R</b> Draw Once</div>
+    <!--<div class="small center">Hotkeys: <b>Space</b> Begin/stop (Executor) • <b>R</b> Draw Once</div>-->
   </div>
 </div>
 
@@ -775,11 +775,12 @@
     const a=document.createElement('a'); a.href=url; a.download='assignments.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   });
 
+  /*
   // Hotkeys
   document.addEventListener('keydown', (e)=>{
     if (e.code==='Space'){ e.preventDefault(); if (!beginBtn.disabled) beginBtn.click(); }
     if (e.key.toLowerCase()==='r'){ e.preventDefault(); if (!drawOnceBtn.disabled) drawOnceBtn.click(); }
-  });
+  });*/
 
   // Guards on initial data
   if (TEAMS.length !== 265){
