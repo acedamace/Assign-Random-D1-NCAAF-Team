@@ -9,32 +9,33 @@
   *{box-sizing:border-box}
   body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--text)}
   .wrap{max-width:1200px;margin:32px auto;padding:0 16px}
-  h1{margin:0 0 10px;font-size:28px}
-  .grid{display:grid;grid-template-columns: 1fr 1fr; gap:16px}
+  h1{margin:0 0 14px;font-size:28px;text-align:center}
+
+  .grid{display:grid;grid-template-columns: 1fr 1fr; gap:14px}
   @media(max-width:1000px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
+  .card{background:var(--card);border-radius:14px;padding:14px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
   .muted{color:var(--muted);font-size:13px}
   .small{font-size:12px;color:#a9afd1}
   .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
 
-  /* Managers (auto height, no scroll by default) */
-  .listbox-auto {overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530;max-height:26vh;}
-  ul.managers{margin:0;padding-left:20px;line-height:1.35}
+  /* Managers: auto height (no scrollbar) */
+  .box-managers{overflow:visible;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
+  ul.managers{margin:0;padding-left:20px;line-height:1.4}
   ul.managers li{margin:2px 0}
 
-  /* Teams (taller, scrolls; uses more vertical space) */
-  .listbox-tall {height:38vh;overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
-  ol.teamlist{margin:0;padding-left:36px;line-height:1.3}
-  ol.teamlist li{padding:3px 6px;border-radius:8px;white-space:nowrap; list-style: decimal}
+  /* Teams: scroll taller; uses remaining space */
+  .box-teams{height:34vh;overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
+  ol.teamlist{margin:0;padding-left:36px;line-height:1.25}
+  ol.teamlist li{padding:2px 6px;border-radius:8px;white-space:nowrap; list-style: decimal}
   ol.teamlist li.hit{background:rgba(122,162,255,.18);outline:1px solid rgba(122,162,255,.35);font-weight:600}
 
-  /* Output spans full width */
+  /* Output larger */
   .wide{grid-column: 1 / span 2;}
-  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:46vh;overflow:auto;white-space:pre}
+  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:58vh;overflow:auto;white-space:pre}
 
-  /* Footer controls under Output */
+  /* Footer controls */
   .controlsFooter{margin-top:8px;background:#0f1530;border:1px solid #2a3252;border-radius:12px;padding:10px}
-  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;justify-content:center}
   .btn{background:#1d2544;color:var(--text);border:1px solid #2a3252;border-radius:10px;padding:10px 14px;cursor:pointer;transition:.15s transform ease,.15s opacity ease}
   .btn:hover{transform:translateY(-1px);opacity:.95}
   .btn:disabled{opacity:.5;cursor:not-allowed}
@@ -44,41 +45,42 @@
 
   /* Host-only speed controls (hidden for others) */
   #speedRow{display:none;margin-top:10px}
+  .row{display:flex;gap:12px}
   .pill{background:#101736;border:1px solid #2a3252;padding:8px 10px;border-radius:10px}
 
   .countdown{font-weight:700;color:var(--warn)}
+  .center{ text-align:center }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Randomly Assign NCAAF D1 Teams</h1>
-  <!-- (Roles line intentionally removed from the page; logic kept in code.) -->
 
   <div class="grid">
-    <!-- Left: Managers (bulleted, no default scrollbar) -->
+    <!-- Left: Managers -->
     <div class="card">
       <div class="muted">Managers</div>
-      <div class="listbox-auto">
+      <div class="box-managers">
         <ul id="managersList" class="managers"></ul>
       </div>
 
-      <!-- Host-only global speed (hidden for others) -->
+      <!-- Host-only global speed -->
       <div id="speedRow" class="row">
-        <div class="pill">
+        <div class="pill" style="flex:1">
           <div class="muted">Speed (ms/char)</div>
-          <input id="speed" type="range" min="5" max="120" value="30" />
+          <input id="speed" type="range" min="5" max="120" value="30" style="width:100%"/>
         </div>
-        <div class="pill">
+        <div class="pill" style="flex:1">
           <div class="muted">Pause between lines (ms)</div>
-          <input id="linePause" type="number" min="0" value="250" />
+          <input id="linePause" type="number" min="0" value="250" style="width:100%"/>
         </div>
       </div>
     </div>
 
     <!-- Right: Teams -->
     <div class="card">
-      <div class="muted">1–265 NCAAF D1 Teams</div>
-      <div class="listbox-tall">
+      <div class="muted">12 of 265 NCAAF D1 Teams will be randomly selected.</div>
+      <div class="box-teams">
         <ol id="teamList" class="teamlist mono"></ol>
       </div>
     </div>
@@ -90,7 +92,7 @@
     </div>
   </div>
 
-  <!-- FOOTER: controls + status (separate from grid, visually attached to output) -->
+  <!-- FOOTER: controls + status -->
   <div class="controlsFooter">
     <div class="controls">
       <button id="start"    class="btn">Start</button>
@@ -100,15 +102,15 @@
       <button id="copy"     class="btn">Copy</button>
       <button id="csv"      class="btn">Export CSV</button>
     </div>
-    <div class="small" id="status">Connecting…</div>
-    <div class="small" id="audience"></div>
-    <div class="small">Hotkeys: <b>Space</b> Begin/stop (Executor) • <b>R</b> Draw Once</div>
+    <div class="small center" id="status">Connecting…</div>
+    <div class="small center" id="audience"></div>
+    <div class="small center">Hotkeys: <b>Space</b> Begin/stop (Executor) • <b>R</b> Draw Once</div>
   </div>
 </div>
 
 <script type="module">
   /* ===================== FIXED DATA (READ-ONLY) ===================== */
-  // 👉 Paste your exact 265-name University/College list here (the one you provided). Keep it at 265.
+  // 👉 Paste your exact 265-name University/College list here. Keep it at 265.
   const TEAMS = [
 "Abilene Christian University","Alabama A&M University","Alabama State University","Alcorn State University","Appalachian State University","Arizona State University",
   "Arkansas State University","Auburn University","Austin Peay State University","Ball State University","Baylor University","Bethune-Cookman University",
@@ -201,7 +203,7 @@
   function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
   function pick12(n){ const idx=[...Array(n).keys()].map(i=>i+1); return shuffle(idx).slice(0,12).sort((a,b)=>a-b); }
   const pad3 = (n)=>String(n).padStart(3,' ');
-  const formatLine = (m, num, team)=>`${m.padEnd(10)} -> ${pad3(num)} - ${team}\n`;
+  const formatLine = (m, num, team)=>`${m.padEnd(10)} -> ${pad3(num)} - ${team}\n`; // single trailing \n
 
   // Render static lists
   managersList.innerHTML = MANAGERS.map(m=>`<li>${m}</li>`).join('');
@@ -266,11 +268,9 @@
   function wireUIForRole(){
     // Start (host toggles control mode)
     startBtn.disabled = !isHost;
-    // Begin will be enabled by UI listener only if controlMode === 'begin' AND user is Executor
+    // UI listener sets Begin/Finalize based on state; default them disabled here
     beginBtn.disabled = true;
-    // Finalize enabled by UI listener only if cyclesCompleted >= 1 AND user is Finalizer
     finalizeBtn.disabled = true;
-    // Draw Once is allowed by default; Start may disable it
     drawOnceBtn.disabled = false;
     // Host-only speed controls
     speedRow.style.display = isHost ? '' : 'none';
@@ -286,17 +286,17 @@
   const saveGlobalSpeed = ()=>{ if (!isHost) return; update(ref(db,'settings'), {
     speedMs: Number(speedEl.value||30), linePauseMs: Number(pauseEl.value||250)
   }); };
-  document.getElementById('speed')?.addEventListener('change', saveGlobalSpeed);
-  document.getElementById('linePause')?.addEventListener('change', saveGlobalSpeed);
+  speedEl.addEventListener('change', saveGlobalSpeed);
+  pauseEl.addEventListener('change', saveGlobalSpeed);
 
-  // ---------- live users (for display) ----------
+  // ---------- live users ----------
   onValue(ref(db,'users'), (snap)=>{
     const users = snap.val()||{};
     const list = Object.entries(users).map(([uid,u])=>`${(u.displayName||'Viewer')} — ${uid.slice(0,8)}…`);
     audEl.textContent = 'Connected: ' + (list.length ? list.join(' | ') : '—');
   });
 
-  // ========== UI LISTENER: cooldown, buttons, highlights (never touches #out) ==========
+  // ========== UI LISTENER (cooldown, buttons, highlights) ==========
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
     const now = Date.now();
@@ -322,14 +322,11 @@
       startBtn.disabled = beginBtn.disabled = drawOnceBtn.disabled = finalizeBtn.disabled = true;
     } else {
       cooldownEl.textContent='';
-      // base role gating
+      // Base role gating
       startBtn.disabled = !isHost;
-      // Begin only enabled if controlMode === 'begin' AND user is Executor
       const mode = s.controlMode || 'drawonce';
       beginBtn.disabled = !(mode === 'begin' && isExecutor);
-      // Draw Once enabled only if not in 'begin' control mode
-      drawOnceBtn.disabled = (mode === 'begin');
-      // Finalize enabled only if cyclesCompleted >= 1 AND user is Finalizer
+      drawOnceBtn.disabled = (mode === 'begin'); // draw once disabled in begin-mode
       const cycles = s.cyclesCompleted || 0;
       finalizeBtn.disabled = !(cycles >= 1 && isFinalizer);
     }
@@ -342,14 +339,14 @@
       if (li) li.classList.add('hit');
     });
 
-    // if the state stops, clear button styles (visual)
+    // Clear button state when stopped
     if (!s.running){
       localContinuous=false; localFinalizeRequested=false;
       beginBtn.classList.remove('on'); finalizeBtn.classList.remove('finalizing');
     }
   });
 
-  // ========== RENDERER LISTENER: types output once per draw (guarded) ==========
+  // ========== RENDERER (types output once per draw; ignores mid-draw updates) ==========
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
     const running   = !!s.running;
@@ -361,17 +358,27 @@
     if (animating) return;
     if (renderSeq && renderSeq === activeSeq) return;
 
+    // lock
     animating = true;
     activeSeq = renderSeq;
 
-    out.textContent = "Random Assignments:\n\n";
+    // header (no extra blank spacer line)
+    out.textContent = "Random Assignments:\n";
 
     for (let i=0;i<Math.min(picks.length, managers.length);i++){
       const idx = picks[i]-1;
       const line = formatLine(managers[i], picks[i], TEAMS[idx] || "??");
-      for (const ch of line){ out.textContent += ch; await sleep(globalSpeedMs); }
+      for (let j=0;j<line.length;j++){
+        out.textContent += line[j];
+        // if a new sequence starts during typing, abort old render
+        const latest = (await get(ref(db,'state'))).val()||{};
+        if (latest.renderSeq && latest.renderSeq !== activeSeq) {
+          animating = false;
+          return;
+        }
+        await sleep(globalSpeedMs);
+      }
       await sleep(globalLinePauseMs);
-      // (Optional reduction in DB writes): we no longer update currentPickIndex each line.
     }
 
     animating = false;
@@ -439,9 +446,8 @@
     await update(ref(db,'state'), { controlMode:'begin' });
   });
 
-  // Begin → continuous loop (Executor only). No pick-12 gating anymore.
+  // Begin → continuous loop (Executor only)
   beginBtn.addEventListener('click', async ()=>{
-    // Enable only if UI listener has set it (controlMode === 'begin' & executor)
     if (beginBtn.disabled) return;
     if (localContinuous) return;
 
@@ -465,10 +471,9 @@
     loop();
   });
 
-  // Draw Once → one draw then stop (acts as its own start/stop)
+  // Draw Once → one draw then stop
   drawOnceBtn.addEventListener('click', async ()=>{
     if (drawOnceBtn.disabled) return;
-    // If already running once, do nothing; it will stop when finished.
     const s = (await get(ref(db,'state'))).val()||{};
     const running = !!s.running && s.mode==='once';
     if (!running){
@@ -480,7 +485,7 @@
     }
   });
 
-  // Finalize → if continuous, finish current + one more; else enter cooldown
+  // Finalize
   finalizeBtn.addEventListener('click', async ()=>{
     if (finalizeBtn.disabled) return;
     finalizeBtn.classList.add('finalizing');
@@ -490,7 +495,7 @@
       await update(ref(db,'state'), { finalizeRequested:true });
     } else {
       if (s.running && s.mode==='once'){
-        // wait until renderer finishes naturally
+        // wait until running flips false
         while(true){
           const cur = (await get(ref(db,'state'))).val()||{};
           if (!cur.running) break;
@@ -508,7 +513,7 @@
     statusEl.textContent='Output copied'; setTimeout(()=>statusEl.textContent='',1500);
   });
   csvBtn.addEventListener('click', ()=>{
-    const lines = out.textContent.trim().split('\n').slice(2).filter(x=>x.includes('->'));
+    const lines = out.textContent.trim().split('\n').slice(1).filter(x=>x.includes('->'));
     const rows = lines.map(line=>{
       const [left,right] = line.split('->').map(s=>s.trim());
       const [num, ...teamParts] = right.split(' - ');
@@ -526,9 +531,9 @@
     if (e.key.toLowerCase()==='r'){ e.preventDefault(); if (!drawOnceBtn.disabled) drawOnceBtn.click(); }
   });
 
-  // Quick data guard (shows error but does nothing until you hit a button)
-  if (TEAMS.length !== 265) out.textContent = "ERROR: TEAMS must contain exactly 265 items.\nPaste your full list into the TEAMS array.";
-  if (MANAGERS.length !== 12) out.textContent += "\nERROR: MANAGERS must contain exactly 12 items.";
+  // Quick data guard
+  if (TEAMS.length !== 265) out.textContent = 'There should be exactly 265 NCAAF D1 teams. There are currently ' + TEAMS.length + ' teams in the list.';
+  if (MANAGERS.length !== 12) out.textContent += '\nThere should be exactly 12 managers. There are currently ' + MANAGERS.length + ' managers in the list.';
 </script>
 </body>
 </html>
