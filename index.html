@@ -11,27 +11,30 @@
   .wrap{max-width:1200px;margin:32px auto;padding:0 16px}
   h1{margin:0 0 14px;font-size:28px;text-align:center}
 
-  .grid{display:grid;grid-template-columns: 1fr 1fr; gap:14px}
+  .grid{display:grid;grid-template-columns: 1fr 1fr; gap:14px; align-items:stretch}
   @media(max-width:1000px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--card);border-radius:14px;padding:14px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
+  .card{background:var(--card);border-radius:14px;padding:14px;box-shadow:0 10px 25px rgba(0,0,0,.25); display:flex; flex-direction:column}
   .muted{color:var(--muted);font-size:13px}
   .small{font-size:12px;color:#a9afd1}
   .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
 
-  /* Managers: auto height (no scrollbar) */
-  .box-managers{overflow:visible;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
+  /* Balance top-row card heights so Teams can use full height */
+  .topCard{min-height:300px}
+
+  /* Managers: no scrollbar; just big enough for 12 names */
+  .box-managers{border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
   ul.managers{margin:0;padding-left:20px;line-height:1.4}
   ul.managers li{margin:2px 0}
 
-  /* Teams: scroll taller; uses remaining space */
-  .box-teams{height:34vh;overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
+  /* Teams: fills the remaining height of its card and scrolls */
+  .box-teams{flex:1; overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
   ol.teamlist{margin:0;padding-left:36px;line-height:1.25}
   ol.teamlist li{padding:2px 6px;border-radius:8px;white-space:nowrap; list-style: decimal}
   ol.teamlist li.hit{background:rgba(122,162,255,.18);outline:1px solid rgba(122,162,255,.35);font-weight:600}
 
-  /* Output larger */
+  /* Output: fixed pixel height (does not grow with page) */
   .wide{grid-column: 1 / span 2;}
-  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:58vh;overflow:auto;white-space:pre}
+  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:560px;overflow:auto;white-space:pre}
 
   /* Footer controls */
   .controlsFooter{margin-top:8px;background:#0f1530;border:1px solid #2a3252;border-radius:12px;padding:10px}
@@ -58,7 +61,7 @@
 
   <div class="grid">
     <!-- Left: Managers -->
-    <div class="card">
+    <div class="card topCard">
       <div class="muted">Managers</div>
       <div class="box-managers">
         <ul id="managersList" class="managers"></ul>
@@ -78,7 +81,7 @@
     </div>
 
     <!-- Right: Teams -->
-    <div class="card">
+    <div class="card topCard">
       <div class="muted">12 of 265 NCAAF D1 Teams will be randomly selected.</div>
       <div class="box-teams">
         <ol id="teamList" class="teamlist mono"></ol>
@@ -166,7 +169,6 @@
   import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
   import { getDatabase, ref, onValue, get, set, update, runTransaction } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-  // Your Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyAmgCkDpIN-YNALQOb8HTb7WJn1bX0i9qA",
     authDomain: "draft-sync.firebaseapp.com",
@@ -216,6 +218,7 @@
   let localIsController=false;
   let localContinuous=false;
   let localFinalizeRequested=false;
+  let fastForward = false; // live-flag to finish a one-off quickly
 
   // renderer guards
   let animating = false;
@@ -245,7 +248,7 @@
     myName = name;
   }
 
-  // Bootstrap: first user named EXACTLY "AceDaAdmin" takes host/executor/finalizer if roles are empty.
+  // Bootstrap AceDaAdmin if roles empty
   async function bootstrapHostIfNamed(){
     const rolesSnap = await get(ref(db,'roles'));
     const rolesVal = rolesSnap.exists()? rolesSnap.val():{};
@@ -266,15 +269,21 @@
   }
 
   function wireUIForRole(){
-    // Start (host toggles control mode)
     startBtn.disabled = !isHost;
-    // UI listener sets Begin/Finalize based on state; default them disabled here
     beginBtn.disabled = true;
     finalizeBtn.disabled = true;
     drawOnceBtn.disabled = false;
-    // Host-only speed controls
     speedRow.style.display = isHost ? '' : 'none';
   }
+
+  // Live roles listener (ensures host sees speed controls even if roles change later)
+  onValue(ref(db,'roles'), (snap)=>{
+    const val = snap.val()||{};
+    isHost = val.hostUid === myUID;
+    isExecutor = val.executorUid === myUID;
+    isFinalizer = val.finalizerUid === myUID;
+    speedRow.style.display = isHost ? '' : 'none';
+  });
 
   // ---------- settings (global speed) ----------
   onValue(ref(db,'settings'), (snap)=>{
@@ -302,7 +311,10 @@
     const now = Date.now();
     const until = s.cooldownUntil||0;
 
-    // Cooldown handling with single timer
+    // fast-forward flag mirrors DB so renderer can react
+    fastForward = !!s.fastForward;
+
+    // Cooldown
     if (now < until){
       if (!cooldownTimer){
         const tick = ()=>{
@@ -322,13 +334,19 @@
       startBtn.disabled = beginBtn.disabled = drawOnceBtn.disabled = finalizeBtn.disabled = true;
     } else {
       cooldownEl.textContent='';
-      // Base role gating
-      startBtn.disabled = !isHost;
       const mode = s.controlMode || 'drawonce';
-      beginBtn.disabled = !(mode === 'begin' && isExecutor);
-      drawOnceBtn.disabled = (mode === 'begin'); // draw once disabled in begin-mode
+      const running = !!s.running;
+      const runningOnce = running && s.mode === 'once';
+
+      // Base role gating
+      startBtn.disabled  = !isHost || running;                 // disable during any running draw
+      beginBtn.disabled  = !(mode === 'begin' && isExecutor) || runningOnce || running; // disabled while draw once (or any running)
+      drawOnceBtn.disabled = (mode === 'begin') && !runningOnce ? true : false;         // disabled in begin-mode unless we're already in a once-run (so you can fast-forward)
+      // But if currently running once, keep Draw Once enabled so it can fast-forward
+      if (runningOnce) { drawOnceBtn.disabled = false; }
+
       const cycles = s.cyclesCompleted || 0;
-      finalizeBtn.disabled = !(cycles >= 1 && isFinalizer);
+      finalizeBtn.disabled = !(cycles >= 1 && isFinalizer) || runningOnce; // can't finalize in the middle of a one-off
     }
 
     // controller + team highlights
@@ -346,13 +364,14 @@
     }
   });
 
-  // ========== RENDERER (types output once per draw; ignores mid-draw updates) ==========
+  // ========== RENDERER (types output once per draw; can fast-forward) ==========
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
     const running   = !!s.running;
     const picks     = Array.isArray(s.picks) ? s.picks : [];
     const managers  = Array.isArray(s.managers) ? s.managers : [];
     const renderSeq = s.renderSeq ?? null;
+    const mode      = s.mode || 'once';
 
     if (!running || !picks.length || !managers.length) return;
     if (animating) return;
@@ -362,20 +381,46 @@
     animating = true;
     activeSeq = renderSeq;
 
-    // header (no extra blank spacer line)
     out.textContent = "Random Assignments:\n";
+
+    // If fastForward is already set when we start, dump full text immediately
+    if (fastForward && mode === 'once'){
+      const block = picks.map((p,i)=>formatLine(managers[i], p, TEAMS[p-1]||"??")).join('');
+      out.textContent += block;
+      if (localIsController){
+        const prev = (await get(ref(db,'state'))).val()||{};
+        const cyc = (prev.cyclesCompleted||0)+1;
+        await update(ref(db,'state'), { running:false, fastForward:false, cyclesCompleted:cyc });
+      }
+      animating = false;
+      return;
+    }
 
     for (let i=0;i<Math.min(picks.length, managers.length);i++){
       const idx = picks[i]-1;
       const line = formatLine(managers[i], picks[i], TEAMS[idx] || "??");
+
+      // Typewriter, but honor fast-forward requests mid-line
       for (let j=0;j<line.length;j++){
-        out.textContent += line[j];
-        // if a new sequence starts during typing, abort old render
+        // if a new sequence starts, abort
         const latest = (await get(ref(db,'state'))).val()||{};
         if (latest.renderSeq && latest.renderSeq !== activeSeq) {
           animating = false;
           return;
         }
+        // if fast-forward requested during a one-off, dump remainder immediately
+        if (latest.fastForward && latest.mode === 'once'){
+          const block = picks.map((p,k)=>formatLine(managers[k], p, TEAMS[p-1]||"??")).join('');
+          out.textContent = "Random Assignments:\n" + block;
+          if (localIsController){
+            const cyc = (latest.cyclesCompleted||0)+1;
+            await update(ref(db,'state'), { running:false, fastForward:false, cyclesCompleted:cyc });
+          }
+          animating = false;
+          return;
+        }
+
+        out.textContent += line[j];
         await sleep(globalSpeedMs);
       }
       await sleep(globalLinePauseMs);
@@ -394,29 +439,37 @@
   }
 
   async function writeDrawOnce(controller){
-    if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265.'); return 0; }
-    if (MANAGERS.length !== 12){ alert('MANAGERS must be exactly 12.'); return 0; }
+    if (TEAMS.length !== 265){
+      out.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`;
+      if (MANAGERS.length !== 12){
+        out.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
+      }
+      return 0;
+    }
+    if (MANAGERS.length !== 12){
+      out.textContent = `There should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
+      return 0;
+    }
     const picks = pick12(TEAMS.length);
     const managers = shuffle(MANAGERS);
     const duration = computeDrawDuration(picks, managers);
     const renderSeq = Date.now();
     await update(ref(db,'state'), {
       running:true, mode:'once', controllerUid:controller,
-      picks, managers, renderSeq
+      picks, managers, renderSeq, fastForward:false
     });
     return duration;
   }
 
   async function writeBeginCycle(controller){
-    if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265.'); return 0; }
-    if (MANAGERS.length !== 12){ alert('MANAGERS must be exactly 12.'); return 0; }
+    if (TEAMS.length !== 265 || MANAGERS.length !== 12) return 0;
     const picks = pick12(TEAMS.length);
     const managers = shuffle(MANAGERS);
     const duration = computeDrawDuration(picks, managers);
     const renderSeq = Date.now();
     await update(ref(db,'state'), {
       running:true, mode:'continuous', controllerUid:controller,
-      picks, managers, renderSeq
+      picks, managers, renderSeq, fastForward:false
     });
     return duration;
   }
@@ -429,7 +482,7 @@
 
     await update(ref(db,'state'), {
       running:false, finalizeRequested:false, finalizedAt: now,
-      cooldownUntil: now + 60000, controlMode:'drawonce'
+      cooldownUntil: now + 60000, controlMode:'drawonce', fastForward:false
     });
 
     if (hostUid){
@@ -471,17 +524,28 @@
     loop();
   });
 
-  // Draw Once → one draw then stop
+  // Draw Once → start; if already running once -> fast-forward to finish immediately
   drawOnceBtn.addEventListener('click', async ()=>{
-    if (drawOnceBtn.disabled) return;
     const s = (await get(ref(db,'state'))).val()||{};
-    const running = !!s.running && s.mode==='once';
-    if (!running){
+    const runningOnce = !!s.running && s.mode==='once';
+
+    if (!runningOnce){
       const dur = await writeDrawOnce(myUID);
+      if (!dur) return;
+      // During one-off draw, disable Start/Begin globally (handled by UI listener), but also guard here:
+      startBtn.disabled = true;
+      beginBtn.disabled = true;
+
       await sleep(dur);
-      const prev = (await get(ref(db,'state'))).val()||{};
-      const cyc = (prev.cyclesCompleted||0)+1;
-      await update(ref(db,'state'), { running:false, cyclesCompleted:cyc });
+      // If it wasn’t fast-forwarded, close it cleanly
+      const finish = (await get(ref(db,'state'))).val()||{};
+      if (finish.running && !finish.fastForward && finish.mode==='once'){
+        const cyc = (finish.cyclesCompleted||0)+1;
+        await update(ref(db,'state'), { running:false, cyclesCompleted:cyc });
+      }
+    } else {
+      // already running once -> request fast-forward (all clients will finish instantly)
+      await update(ref(db,'state'), { fastForward:true });
     }
   });
 
@@ -495,11 +559,13 @@
       await update(ref(db,'state'), { finalizeRequested:true });
     } else {
       if (s.running && s.mode==='once'){
-        // wait until running flips false
+        // If a one-off is still typing and someone pressed Finalize, just fast-forward it first.
+        await update(ref(db,'state'), { fastForward:true });
+        // Wait until running flips false
         while(true){
           const cur = (await get(ref(db,'state'))).val()||{};
           if (!cur.running) break;
-          await sleep(200);
+          await sleep(150);
         }
       }
       await finishAndCooldown();
@@ -531,9 +597,9 @@
     if (e.key.toLowerCase()==='r'){ e.preventDefault(); if (!drawOnceBtn.disabled) drawOnceBtn.click(); }
   });
 
-  // Quick data guard
-  if (TEAMS.length !== 265) out.textContent = 'There should be exactly 265 NCAAF D1 teams. There are currently ' + TEAMS.length + ' teams in the list.';
-  if (MANAGERS.length !== 12) out.textContent += '\nThere should be exactly 12 managers. There are currently ' + MANAGERS.length + ' managers in the list.';
+  // Data guard messages (your requested wording)
+  if (TEAMS.length !== 265) out.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`;
+  if (MANAGERS.length !== 12) out.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
 </script>
 </body>
 </html>
