@@ -8,31 +8,35 @@
   :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; --ok:#79ffa1; --warn:#ffd479; }
   *{box-sizing:border-box}
   body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--text)}
-  .wrap{max-width:1200px;margin:32px auto;padding:0 16px}
+  .wrap{max-width:1300px;margin:32px auto;padding:0 16px} /* widened ~100px */
   h1{margin:0 0 14px;font-size:28px;text-align:center}
 
   .grid{display:grid;grid-template-columns: 1fr 1fr; gap:14px}
-  @media(max-width:1000px){.grid{grid-template-columns:1fr}}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
   .card{background:var(--card);border-radius:14px;padding:14px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
   .muted{color:var(--muted);font-size:13px}
   .small{font-size:12px;color:#a9afd1}
   .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
 
-  /* Managers: auto height (no scrollbar) */
+  /* Managers: no scrollbar; shows all 12 */
   .box-managers{border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
   ul.managers{margin:0;padding-left:20px;line-height:1.4}
   ul.managers li{margin:2px 0}
 
-  /* Teams: revert to earlier smaller height; scroll fills its card */
+  /* Teams: preferred smaller height; scroll fills card */
   .box-teams{height:34vh;overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
   ol.teamlist{margin:0;padding-left:36px;line-height:1.25}
   ol.teamlist li{padding:2px 6px;border-radius:8px;white-space:nowrap; list-style: decimal}
   ol.teamlist li.hit{background:rgba(122,162,255,.18);outline:1px solid rgba(122,162,255,.35);font-weight:600}
 
-  /* Output area split into two equal columns inside its card */
+  /* Output area split into two equal columns */
   .wide{grid-column: 1 / span 2;}
   .outGrid{display:grid;grid-template-columns:1fr 1fr; gap:12px}
-  .outBox{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;overflow:auto;white-space:pre}
+  .outBox{
+    font-family:ui-monospace,Consolas,Menlo,monospace;
+    background:#0f1530;border:1px solid #2a3252;border-radius:10px;
+    padding:12px;overflow:auto;white-space:pre; /* no wrap; allow horizontal scroll */
+  }
   .outTitle{margin-bottom:6px;color:var(--muted);font-size:13px}
 
   /* Footer controls */
@@ -45,7 +49,7 @@
   .btn.on{outline:2px solid var(--ok);box-shadow:0 0 0 4px rgba(121,255,161,.12) inset}
   .btn.finalizing{outline:2px solid var(--warn);box-shadow:0 0 0 4px rgba(255,212,121,.12) inset}
 
-  /* Host-only speed controls (hidden for others) */
+  /* Host-only speed controls */
   #speedRow{display:none;margin-top:10px}
   .row{display:flex;gap:12px}
   .pill{background:#101736;border:1px solid #2a3252;padding:8px 10px;border-radius:10px}
@@ -81,7 +85,7 @@
 
     <!-- Right: Teams -->
     <div class="card">
-      <div class="muted">12 of 265 NCAAF D1 Teams will be randomly selected.</div>
+      <div class="muted">12 of 265 NCAAF D1 teams will be randomly selected.</div>
       <div class="box-teams">
         <ol id="teamList" class="teamlist mono"></ol>
       </div>
@@ -92,11 +96,11 @@
       <div class="muted">Output <span id="cooldown" class="countdown"></span></div>
       <div class="outGrid">
         <div>
-          <div class="outTitle">Last Draw (completed)</div>
+          <div class="outTitle">Last Completed Draw</div>
           <div id="outPrev" class="outBox"></div>
         </div>
         <div>
-          <div class="outTitle">Live</div>
+          <div class="outTitle">Live (Randomly assigning teams....)</div>
           <div id="outLive" class="outBox"></div>
         </div>
       </div>
@@ -167,10 +171,54 @@
   "Utah State University","Valparaiso University","Vanderbilt University","Villanova University","Virginia Military Institute – VMI","Virginia Tech","Wagner College","Wake Forest University",
   "Washington State University","Weber State University","West Virginia University","Western Carolina University","Western Illinois University","Western Kentucky University",
   "Western Michigan University","William & Mary","Wofford College","Yale University","Youngstown State University"            
+];const TEAMS = [
+"Abilene Christian University","Alabama A&M University","Alabama State University","Alcorn State University","Appalachian State University","Arizona State University",
+  "Arkansas State University","Auburn University","Austin Peay State University","Ball State University","Baylor University","Bethune-Cookman University",
+  "Boise State University","Boston College","Bowling Green State University","Brigham Young University","Brown University","Bryant University",
+  "Bucknell University","Butler University","California Polytechnic State University – San Luis Obispo","California State University – Fresno","California State University – Sacramento",
+  "Campbell University","Central Connecticut State University","Central Michigan University","Charleston Southern University","Clemson University",
+  "Coastal Carolina University","Colgate University","College of the Holy Cross","Colorado State University","Columbia University","Cornell University",
+  "Cottey College","Dartmouth College","Davidson College","Delaware State University","Drake University","Duke University","Duquesne University",
+  "East Carolina University","East Tennessee State University","Eastern Illinois University","Eastern Kentucky University","Eastern Michigan University",
+  "Eastern Washington University","Elon University","Florida A&M University","Florida Atlantic University","Florida International University","Florida State University",
+  "Fordham University","Formerly Dixie State University","Furman University","Gardner-Webb University","Georgetown University","Georgia Southern University",
+  "Georgia State University","Georgia Tech","Grambling State University","Hampton University","Harvard University","Houston Christian University","Howard University",
+  "Idaho State University","Illinois State University","Indiana State University","Indiana University","Iowa State University","Jackson State University","Jacksonville State University",
+  "James Madison University","Kansas State University","Kennesaw State University","Kent State University","Lafayette College","Lamar University","Lehigh University",
+  "Liberty University","Lindenwood University","Long Island University","Louisiana State University (LSU)","Louisiana Tech University","Marist College","Marshall University",
+  "McNeese State University","Mercer University","Mercyhurst University","Merrimack College","Miami University","Michigan State University","Middle Tennessee State University",
+  "Mississippi State University","Mississippi Valley State University","Missouri State University","Monmouth University","Montana State University","Morehead State University",
+  "Morgan State University","Murray State University","New Mexico State University","Nicholls State University","Norfolk State University","North Carolina A&T State University",
+  "North Carolina Central University","North Carolina State University","North Dakota State University","Northern Arizona University","Northern Illinois University",
+  "Northwestern State University of Louisiana","Northwestern University","Ohio State University","Ohio University","Oklahoma State University","Old Dominion University",
+  "Oregon State University","Penn State","Portland State University","Prairie View A & M University","Presbyterian College","Princeton University","Purdue University",
+  "Rice University","Robert Morris University – Pennsylvania","Rutgers University","Sacred Heart University","Saint Francis University","Sam Houston State University",
+  "Samford University","San Diego State University","San Jose State University","South Carolina State University","South Dakota State University","Southeast Missouri State University",
+  "Southeastern Louisiana University","Southern Illinois University Carbondale","Southern Methodist University – SMU","Southern University & A&M College","Southern Utah University",
+  "Stanford University","Stephen F Austin State University","Stetson University","Stonehill College","SUNY Stony Brook University","SUNY University at Albany","SUNY University at Buffalo",
+  "Syracuse University","Tarleton State University","Temple University","Tennessee State University","Tennessee Technological University","Texas A&M University","Texas A&M University – Commerce",
+  "Texas Christian University","Texas Southern University","Texas State University","Texas Tech University","The Citadel","Towson University","Troy University","Tulane University",
+  "United States Air Force Academy","United States Military Academy","United States Naval Academy","University of Akron","University of Alabama","University of Alabama – Birmingham",
+  "University of Arizona","University of Arkansas","University of Arkansas at Pine Bluff","University of California – Berkeley","University of California – Davis",
+  "University of California – Los Angeles – UCLA","University of Central Arkansas","University of Central Florida","University of Cincinnati","University of Colorado – Boulder",
+  "University of Connecticut","University of Dayton","University of Delaware","University of Florida","University of Georgia","University of Hawaii at Manoa","University of Houston",
+  "University of Idaho","University of Illinois","University of Iowa","University of Kansas","University of Kentucky","University of Louisiana","University of Louisiana – Monroe",
+  "University of Louisville","University of Maine","University of Maryland","University of Massachusetts – Amherst","University of Memphis","University of Miami","University of Michigan",
+  "University of Minnesota","University of Mississippi","University of Missouri","University of Montana","University of Nebraska","University of Nevada – Las Vegas","University of Nevada – Reno",
+  "University of New Hampshire","University of New Mexico","University of North Alabama","University of North Carolina at Chapel Hill","University of North Carolina at Charlotte",
+  "University of North Dakota","University of North Texas","University of Northern Colorado","University of Northern Iowa","University of Notre Dame","University of Oklahoma",
+  "University of Oregon","University of Pennsylvania – Penn","University of Pittsburgh","University of Rhode Island","University of Richmond","University of San Diego",
+  "University of South Alabama","University of South Carolina","University of South Dakota","University of South Florida","University of Southern California","University of Southern Mississippi",
+  "University of St. Thomas – Minnesota","University of Tennessee","University of Tennessee – Chattanooga","University of Tennessee – Martin","University of Texas – Austin",
+  "University of Texas – El Paso","University of Texas – Rio Grande Valley","University of Texas – San Antonio","University of the Incarnate Word","University of Toledo",
+  "University of Tulsa","University of Utah","University of Virginia","University of Washington","University of West Georgia","University of Wisconsin","University of Wyoming",
+  "Utah State University","Valparaiso University","Vanderbilt University","Villanova University","Virginia Military Institute – VMI","Virginia Tech","Wagner College","Wake Forest University",
+  "Washington State University","Weber State University","West Virginia University","Western Carolina University","Western Illinois University","Western Kentucky University",
+  "Western Michigan University","William & Mary","Wofford College","Yale University","Youngstown State University"            
 ];
 
   // Managers (12)
-  const MANAGERS = ["AP","AW","CR","JW","MS","LL","Josh","FAB","JJ","EJ","DA","CO"];
+  const MANAGERS = ["AP","AW","CR","JW","MS","LL","Josh","FAB","JJ","EJ","DS","CO"];
   /* ================================================================== */
 
   // ---------- Firebase (CDN) ----------
@@ -193,7 +241,7 @@
   const db   = getDatabase(app);
 
   // ---------- UI refs ----------
-  const outPrev = document.getElementById('outPrev');   // Last Draw (completed)
+  const outPrev = document.getElementById('outPrev');   // Last Completed Draw
   const outLive = document.getElementById('outLive');   // Live typewriter
   const teamList = document.getElementById('teamList');
   const managersList = document.getElementById('managersList');
@@ -217,13 +265,6 @@
   function pick12(n){ const idx=[...Array(n).keys()].map(i=>i+1); return shuffle(idx).slice(0,12).sort((a,b)=>a-b); }
   const pad3 = (n)=>String(n).padStart(3,' ');
   const formatLine = (m, num, team)=>`${m.padEnd(10)} -> ${pad3(num)} - ${team}\n`; // single trailing \n
-  function fitBox(el){
-    const style = getComputedStyle(el);
-    const lineH = parseFloat(style.lineHeight) || 18;
-    const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
-    const lines = Math.max(1, el.textContent.split('\n').length);
-    el.style.height = Math.min(Math.max(lines*lineH + padding, 120), 560) + 'px';
-  }
 
   // Render static lists
   managersList.innerHTML = MANAGERS.map(m=>`<li>${m}</li>`).join('');
@@ -233,10 +274,10 @@
   let myUID=null, myName="Viewer";
   let isHost=false, isExecutor=false, isFinalizer=false;
   let globalSpeedMs=30, globalLinePauseMs=250;
-  let localIsController=false; // true if this client started the current draw (controllerUid === myUID)
+  let localIsController=false;
   let localContinuous=false;
   let localFinalizeRequested=false;
-  let fastForward = false; // fast finish for Draw Once
+  let fastForward = false; // fast-finish Draw Once
   let hasBegun = false;    // Begin session is active
 
   // renderer guards
@@ -336,9 +377,9 @@
     fastForward = !!s.fastForward;
     hasBegun = !!s.hasBegun;
 
-    // mirror Last Draw text
+    // mirror Last Completed Draw text (never cleared by Start)
     const lastText = s.lastResultText || '';
-    if (outPrev.textContent !== lastText){ outPrev.textContent = lastText; fitBox(outPrev); }
+    if (outPrev.textContent !== lastText){ outPrev.textContent = lastText; }
 
     // Cooldown
     if (now < until){
@@ -365,7 +406,6 @@
       const runningOnce = running && s.mode === 'once';
 
       // controller & highlights
-      localIsController = (s.controllerUid === myUID);
       document.querySelectorAll('#teamList li.hit').forEach(li=>li.classList.remove('hit'));
       (Array.isArray(s.picks)? s.picks:[]).forEach(n=>{
         const li = document.querySelector(`#teamList li[data-num="${n}"]`);
@@ -392,7 +432,7 @@
     }
   });
 
-  // ========== RENDERER (types Live; controller acks completion & saves Last Draw) ==========
+  // ========== RENDERER (types Live; controller acks completion & saves Last Completed Draw) ==========
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
     const running   = !!s.running;
@@ -400,8 +440,9 @@
     const managers  = Array.isArray(s.managers) ? s.managers : [];
     const renderSeq = s.renderSeq ?? null;
     const mode      = s.mode || 'once';
-    const spd       = typeof s.speedMsSnapshot === 'number' ? s.speedMsSnapshot : globalSpeedMs;
-    const pause     = typeof s.linePauseMsSnapshot === 'number' ? s.linePauseMsSnapshot : globalLinePauseMs;
+    const spd       = typeof s.speedMsSnapshot === 'number' ? s.speedMsSnapshot : (await get(ref(db,'settings'))).val()?.speedMs ?? 30;
+    const pause     = typeof s.linePauseMsSnapshot === 'number' ? s.linePauseMsSnapshot : (await get(ref(db,'settings'))).val()?.linePauseMs ?? 250;
+    localIsController = (s.controllerUid === myUID);
 
     if (!running || !picks.length || !managers.length) return;
     if (animating) return;
@@ -411,14 +452,13 @@
     animating = true;
     activeSeq = renderSeq;
 
-    // reset Live panel
-    outLive.textContent = "Random Assignments:\n";
-    fitBox(outLive);
+    // reset Live panel (no "Random Assignments:" header anymore)
+    outLive.textContent = "";
 
     // Fast-forward immediately if requested for once-mode
     if (fastForward && mode === 'once'){
       const block = picks.map((p,i)=>formatLine(managers[i], p, TEAMS[p-1]||"??")).join('');
-      outLive.textContent += block; fitBox(outLive);
+      outLive.textContent = block;
       // controller writes completion + lastResultText
       if (localIsController){
         await update(ref(db,'state'), {
@@ -440,11 +480,10 @@
         outLive.textContent += line[j];
         await sleep(spd);
       }
-      fitBox(outLive);
       await sleep(pause);
     }
 
-    // Finished: controller acks & stores Last Draw
+    // Finished: controller acks & stores Last Completed Draw
     if (localIsController){
       await update(ref(db,'state'), {
         lastCompletedSeq: renderSeq,
@@ -471,7 +510,7 @@
       const ok = await startOneCycleContinuous();
       if (!ok) break;
 
-      // wait for completion ack
+      // wait until this cycle has fully rendered and was acknowledged
       await waitForSeqCompletion(ok.renderSeq);
 
       if (localFinalizeRequested){
@@ -482,7 +521,7 @@
         await finishAndCooldown();
         break;
       }
-      // otherwise loop again
+      // loop again
     }
   }
 
@@ -490,8 +529,9 @@
     if (TEAMS.length !== 265 || MANAGERS.length !== 12) return null;
     const picks = pick12(TEAMS.length);
     const managers = shuffle(MANAGERS);
-    const speedSnap = globalSpeedMs;
-    const pauseSnap = globalLinePauseMs;
+    const settings = (await get(ref(db,'settings'))).val() || {};
+    const speedSnap = Number(settings.speedMs ?? globalSpeedMs);
+    const pauseSnap = Number(settings.linePauseMs ?? globalLinePauseMs);
     const renderSeq = Date.now();
     await update(ref(db,'state'), {
       running:true, mode:'continuous', controlMode:'begin',
@@ -517,18 +557,17 @@
       if (MANAGERS.length !== 12){
         outLive.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
       }
-      fitBox(outLive);
       return false;
     }
     if (MANAGERS.length !== 12){
       outLive.textContent = `There should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
-      fitBox(outLive);
       return false;
     }
     const picks = pick12(TEAMS.length);
     const managers = shuffle(MANAGERS);
-    const speedSnap = globalSpeedMs;
-    const pauseSnap = globalLinePauseMs;
+    const settings = (await get(ref(db,'settings'))).val() || {};
+    const speedSnap = Number(settings.speedMs ?? globalSpeedMs);
+    const pauseSnap = Number(settings.linePauseMs ?? globalLinePauseMs);
     const renderSeq = Date.now();
     await update(ref(db,'state'), {
       running:true, mode:'once', controlMode:'drawonce',
@@ -559,23 +598,22 @@
   }
 
   // ---------- buttons ----------
-  // Start → enter Begin mode (host only). Confirm only if finalized exists.
+  // Start → enter Begin mode (host only). Confirm only if finalized exists. Do NOT clear Last Completed Draw; clear only Live.
   startBtn.addEventListener('click', async ()=>{
     if (startBtn.disabled) return;
     const st = (await get(ref(db,'state'))).val()||{};
     if (st.finalizedAt){
       if (!confirm("This will clear your finalized results, are you sure you want to continue?")) return;
-      await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null, lastResultText: '' });
-      outPrev.textContent = ''; fitBox(outPrev);
+      await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null });
     }
+    outLive.textContent = ""; // clear Live pane for everyone who clicks Start (others clear on next render)
     await update(ref(db,'state'), { controlMode:'begin' });
   });
 
   // Begin (Executor) → deterministic loop
   beginBtn.addEventListener('click', async ()=>{
     if (beginBtn.disabled) return;
-    // This client becomes controller for cycles
-    localIsController = true;
+    localIsController = true;  // this client drives the cycle handshake
     runBeginLoop();
   });
 
@@ -587,13 +625,11 @@
     if (!runningOnce){
       if (s.finalizedAt){
         if (!confirm("This will clear your finalized results, are you sure you want to continue?")) return;
-        await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null, lastResultText: '' });
-        outPrev.textContent = ''; fitBox(outPrev);
+        await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null });
       }
-      // become controller for this one-off
-      localIsController = true;
+      localIsController = true; // controller for this one-off
       const ok = await writeDrawOnce();
-      // Start/Begin disabled while once is running — UI listener already handles, but guard here too
+      // Disable Start/Begin during a one-off (UI listener also handles)
       startBtn.disabled = true; beginBtn.disabled = true;
     } else {
       // already running once -> request fast-forward (all clients finish instantly)
@@ -611,7 +647,6 @@
       await update(ref(db,'state'), { finalizeRequested:true });
     } else {
       if (s.running && s.mode==='once'){
-        // If a one-off is still typing and Finalize is pressed, just fast-forward it first.
         await update(ref(db,'state'), { fastForward:true });
         while(true){
           const cur = (await get(ref(db,'state'))).val()||{};
@@ -636,8 +671,8 @@
       fastForward:false, cyclesCompleted:0, renderSeq:null, lastCompletedSeq:null,
       lastResultText:'', finalizedAt:null, cooldownUntil:null, hasBegun:false
     });
-    outLive.textContent = ""; fitBox(outLive);
-    outPrev.textContent = ""; fitBox(outPrev);
+    outLive.textContent = "";
+    // outPrev stays cleared by the state write above (lastResultText:'')
   });
 
   // Copy / CSV use the Live panel
@@ -646,7 +681,7 @@
     statusEl.textContent='Output copied'; setTimeout(()=>statusEl.textContent='',1500);
   });
   csvBtn.addEventListener('click', ()=>{
-    const lines = outLive.textContent.trim().split('\n').slice(1).filter(x=>x.includes('->'));
+    const lines = outLive.textContent.trim().split('\n').filter(x=>x.includes('->'));
     const rows = lines.map(line=>{
       const [left,right] = line.split('->').map(s=>s.trim());
       const [num, ...teamParts] = right.split(' - ');
@@ -667,8 +702,6 @@
   // Data guard messages (your wording)
   if (TEAMS.length !== 265) { outLive.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`; }
   if (MANAGERS.length !== 12){ outLive.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`; }
-  fitBox(outLive);
-  fitBox(outPrev);
 </script>
 </body>
 </html>
