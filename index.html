@@ -3,90 +3,98 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Synced Random Team Assignments (Read-Only Data)</title>
-  <!--.oit{   height:380px; height: 60vh;-->
-  
+<title>D1 NCAAF Random Assign (Synced)</title>
 <style>
-  :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; }
+  :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; --ok:#79ffa1; --warn:#ffd479; --danger:#ff7b7b; }
   *{box-sizing:border-box}
   body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--text)}
-  .wrap{max-width:1000px;margin:36px auto;padding:0 16px}
+  .wrap{max-width:1200px;margin:32px auto;padding:0 16px}
   h1{margin:0 0 10px;font-size:28px}
   p{color:var(--muted);margin:0 0 18px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .grid{display:grid;grid-template-columns: 1fr 1fr; gap:16px}
+  @media(max-width:1000px){.grid{grid-template-columns:1fr}}
   .card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
-  .btn{background:#1d2544;color:var(--text);border:1px solid #2a3252;border-radius:10px;padding:10px 14px;cursor:pointer}
-  .btn.primary{background:var(--accent);color:#0a0e1f;border-color:#5b86ff}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
   .muted{color:var(--muted);font-size:13px}
-  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;
-       height:380px;
-       overflow:auto;white-space:pre-wrap}
-  .row{display:flex;gap:10px;align-items:center;margin-top:10px}
-  input[type="range"], input[type="number"]{width:100%}
-  .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1d2544;color:#cfe0ff;font-size:12px;margin-left:8px}
   .small{font-size:12px;color:#a9afd1}
-  ul{margin:6px 0 0 18px;padding:0}
+  .listbox{height:55vh;overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
+  .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
+  ol.teamlist{margin:0;padding-left:36px;line-height:1.3}
+  ol.teamlist li{padding:3px 6px;border-radius:8px;white-space:nowrap}
+  ol.teamlist li.hit{background:rgba(122,162,255,.18);outline:1px solid rgba(122,162,255,.35);font-weight:600}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .btn{background:#1d2544;color:var(--text);border:1px solid #2a3252;border-radius:10px;padding:10px 14px;cursor:pointer;transition:.15s transform ease,.15s opacity ease}
+  .btn:hover{transform:translateY(-1px);opacity:.95}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.primary{background:var(--accent);color:#0a0e1f;border-color:#5b86ff}
+  .btn.on{outline:2px solid var(--ok);box-shadow:0 0 0 4px rgba(121,255,161,.12) inset}
+  .btn.finalizing{outline:2px solid var(--warn);box-shadow:0 0 0 4px rgba(255,212,121,.12) inset}
+  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:42vh;overflow:auto;white-space:pre}
+  .wide{grid-column: 1 / span 2;} /* output spans full width to limit wrapping */
+  #speedRow{display:none;margin-top:10px}
+  .pill{background:#101736;border:1px solid #2a3252;padding:8px 10px;border-radius:10px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1d2544;color:#cfe0ff;font-size:12px;margin-left:8px}
+  .row{display:flex;gap:16px}
+  .row>div{flex:1}
+  .countdown{font-weight:700;color:var(--warn)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Random Team Assignments <span class="badge">12 of 265 D1 Teams will be randomly selected.</span></h1>
-  <!-- <p>Teams & managers are <strong>fixed</strong> in code (read-only). Controllers (UIDs in <code>/admins</code>) can Start/Finalize/Draw Once; everyone else is a synced viewer.</p> -->
+  <h1>D1 NCAAF Random Assign <span class="badge">Managers: 12 • Teams: 265</span></h1>
+  <p class="muted">Roles: <b>Host</b> (global settings/role mgmt), <b>Executor</b> (Begin), <b>Finalizer</b> (Finalize). Start only toggles control mode. Draw Once operates as start/stop per cycle. Managers/Teams are fixed (read-only).</p>
 
   <div class="grid">
+    <!-- Left: Managers (read-only) -->
     <div class="card">
-      <div class="row">
-        <div style="flex:1">
-          <div class="muted">Speed (ms / char)</div>
+      <div class="muted">Managers (fixed)</div>
+      <div id="managersBox" class="listbox mono"></div>
+
+      <!-- Speed (host-only, global) -->
+      <div id="speedRow" class="row">
+        <div class="pill">
+          <div class="muted">Speed (ms/char)</div>
           <input id="speed" type="range" min="5" max="120" value="30" />
         </div>
-        <div style="flex:1">
+        <div class="pill">
           <div class="muted">Pause between lines (ms)</div>
           <input id="linePause" type="number" min="0" value="250" />
         </div>
       </div>
 
-      <div class="row">
-        <button id="begin" class="btn primary" disabled>Begin</button>
+      <!-- Controls -->
+      <div class="controls">
+        <button id="start"   class="btn">Start</button>
+        <button id="begin"   class="btn primary" disabled>Begin</button>
+        <button id="drawOnce" class="btn">Draw Once</button>
         <button id="finalize" class="btn" disabled>Finalize</button>
-        <button id="drawonce" class="btn" disabled>Draw Once</button>
-        <button id="copy" class="btn">Copy Output</button>
-        <button id="csv" class="btn">Export CSV</button>
+        <button id="copy"    class="btn">Copy</button>
+        <button id="csv"     class="btn">Export CSV</button>
       </div>
+      <div class="muted" id="status">Connecting…</div>
+      <div class="small" id="audience"></div>
+      <div class="small">Hotkeys: <b>Space</b> Begin/stop in your role • <b>R</b> Draw Once</div>
+    </div>
 
-      <div class="row">
-        <div class="muted" id="status">Connecting…</div>
-      </div>
-
-      <div class="row">
-        <div class="small" id="audience"></div>
-      </div>
-
-      <div class="row" style="align-items:flex-start">
-        <div style="flex:1">
-          <div class="muted">Managers</div>
-          <ul id="managersList"></ul>
-        </div>
-        <div style="flex:1">
-          <!-- <div class="muted">Teams loaded</div> -->
-          <div class="small" id="teamsCount"></div>
-        </div>
+    <!-- Right: Teams list (scrollable, numbered) -->
+    <div class="card">
+      <div class="muted">Teams (1–265)</div>
+      <div class="listbox">
+        <ol id="teamList" class="teamlist mono"></ol>
       </div>
     </div>
 
-    <div class="card">
-      <div class="muted">Output</div>
+    <!-- Output spanning full width -->
+    <div class="card wide">
+      <div class="muted">Output <span id="cooldown" class="countdown"></span></div>
       <div id="out" class="out"></div>
-      <div class="muted" style="margin-top:8px">Hotkeys: <strong>Space</strong> Begin/Finalize, <strong>R</strong> Draw Once</div>
     </div>
   </div>
 </div>
 
 <script type="module">
-  /* ======== READ-ONLY DATA (your lists) ======== */
-const TEAMS = [
+  /* ===================== FIXED DATA (READ-ONLY) ===================== */
+  // TODO: paste your complete 265-team list here (strings, alphabetical). The app enforces length==265.
+  const TEAMS = [
 "Abilene Christian University","Alabama A&M University","Alabama State University","Alcorn State University","Appalachian State University","Arizona State University",
   "Arkansas State University","Auburn University","Austin Peay State University","Ball State University","Baylor University","Bethune-Cookman University",
   "Boise State University","Boston College","Bowling Green State University","Brigham Young University","Brown University","Bryant University",
@@ -132,20 +140,14 @@ const TEAMS = [
   "Western Michigan University","William & Mary","Wofford College","Yale University","Youngstown State University"            
 ];
 
-  const MANAGERS = [
-    "AP","AW","CR","JW","MS","LL","Josh","FAB","JJ","EJ","DA","CO"
-  ];
-  /* ============================================ */
+  // Managers (12, read-only; update labels here)
+  const MANAGERS = ["AP","AW","CR","JW","MS","LL","Josh","FAB","JJ","EJ","DA","CO"];
+  /* ================================================================== */
 
-  // Render read-only lists to UI
-  const managersListEl = document.getElementById('managersList');
-  managersListEl.innerHTML = MANAGERS.map(p => `<li>${p}</li>`).join('');
-  document.getElementById('teamsCount').textContent = `${TEAMS.length} NCAAF D1 college teams in list.`;
-
-  // Firebase SDK (CDN) — only the pieces we need
+  // ---------- Firebase (CDN) ---------- only the pieces we need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
   import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-  import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+  import { getDatabase, ref, onValue, get, set, update, runTransaction } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
   // Your Firebase web app config
   const firebaseConfig = {
@@ -162,138 +164,369 @@ const TEAMS = [
   const auth = getAuth(app);
   const db   = getDatabase(app);
 
-  // UI refs
+  // ---------- UI REFS ----------
   const out = document.getElementById('out');
+  const teamList = document.getElementById('teamList');
+  const managersBox = document.getElementById('managersBox');
   const statusEl = document.getElementById('status');
   const audEl = document.getElementById('audience');
+  const speedRow = document.getElementById('speedRow');
   const speedEl = document.getElementById('speed');
   const pauseEl = document.getElementById('linePause');
+  const startBtn = document.getElementById('start');
   const beginBtn = document.getElementById('begin');
+  const drawOnceBtn = document.getElementById('drawOnce');
   const finalizeBtn = document.getElementById('finalize');
-  const drawonceBtn = document.getElementById('drawonce');
   const copyBtn = document.getElementById('copy');
   const csvBtn = document.getElementById('csv');
+  const cooldownEl = document.getElementById('cooldown');
 
-  // Helpers
+  // ---------- HELPERS ----------
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  const by = (n) => String(n).padStart(3, ' ');
-  function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+  const pad3 = (n) => String(n).padStart(3,' ');
+  function mono(s){ return s; }
+  function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
   function pick12(n){ const idx=[...Array(n).keys()].map(i=>i+1); return shuffle(idx).slice(0,12).sort((a,b)=>a-b); }
+  function formatLine(manager, num, team){ return `${manager.padEnd(10)} -> ${pad3(num)} - ${team}\n`; }
 
-  /*//Globals?
-  let continuous = false;               // are we in continuous “Begin” mode?
-  let finalizeRequested = false;        // user pressed Finalize
-  let loopTimer = null;                 // timer between draws
-  let currentDrawStart = 0;             // ms timestamp when a draw was written
-  let currentDrawDuration = 0;          // exact ms this draw will take to render*/
-  
-  // Auth: anonymous + name/initials prompt, stored under /users/<uid>
-  let myUID=null, myName="Viewer", isController=false, runningLocal=false;
+  // Render static boxes
+  managersBox.textContent = MANAGERS.map((m,i)=> `${String(i+1).padStart(2,'0')}. ${m}`).join('\n');
+  teamList.innerHTML = TEAMS.map((t,i)=> `<li data-num="${i+1}">${pad3(i+1)} — ${t}</li>`).join('');
 
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) { await signInAnonymously(auth); return; }
+  // ---------- GLOBAL STATE ----------
+  let myUID=null, myName="Viewer";
+  let role="viewer"; // viewer|host|executor|finalizer
+  let isHost=false, isExecutor=false, isFinalizer=false;
+  let globalSpeedMs=30, globalLinePauseMs=250;
+
+  // local render bookkeeping (controller only updates DB progress)
+  let localIsController=false;        // true when myUID matches state.controllerUid
+  let localContinuous=false;          // true when Begin loop active
+  let localFinalizeRequested=false;   // true when finalizer pressed during Begin loop
+  let localAnimating=false;           // guard
+  let stopRequestedOnce=false;        // Draw Once toggle behavior
+
+  // ---------- AUTH ----------
+  onAuthStateChanged(auth, async (user)=>{
+    if (!user){ await signInAnonymously(auth); return; }
     myUID = user.uid;
     await ensureDisplayName();
-    await detectControllerRole();
-    statusEl.textContent = (isController ? 'Controller' : 'Viewer') + `: ${myName} (UID ${myUID.slice(0,8)}…)`;
+    await bootstrapHostIfNamed(); // auto-claim host/executor/finalizer if name == AceDaAdmin and roles empty
+    await readMyRole();           // sets role flags
+    statusEl.textContent = `${role.toUpperCase()}: ${myName} (${myUID.slice(0,8)}…)`;
+    wireUIForRole();
   });
 
   async function ensureDisplayName(){
-    const snap = await get(ref(db, `users/${myUID}`));
-    const existing = snap.exists() ? snap.val().displayName : null;
-    if (existing) { myName = existing; return; }
-    let name = (prompt("Enter your name or initials (shown to host):")||"").trim().slice(0,24);
-    if (!name) name = "Viewer";
+    const s = await get(ref(db, `users/${myUID}`));
+    const existing = s.exists() ? s.val().displayName : null;
+    if (existing){ myName = existing; return; }
+    let name = (prompt("Enter your name or initials:")||"").trim().slice(0,24);
+    if (!name) name="Viewer";
     await set(ref(db, `users/${myUID}`), { displayName: name, joinedAt: Date.now() });
     myName = name;
   }
 
-  async function detectControllerRole(){
-    const s = await get(ref(db, `admins/${myUID}`));
-    isController = s.exists() && s.val() === true;
-    beginBtn.disabled = finalizeBtn.disabled = drawonceBtn.disabled = !isController;
-  }
-
-  /*// NEW ADDS-01
-  function formatLine(player, num, team) {
-  return `${player.padEnd(10)} -> ${String(num).padStart(3,' ')} - ${team}\n`;
-}
-
-function computeDrawDuration(picks, players, charDelay, linePause) {
-  // duration = sum(chars in all lines)*charDelay + linePause per line
-  let chars = 0;
-  for (let i = 0; i < picks.length; i++) {
-    const idx = picks[i] - 1;
-    const line = formatLine(players[i], picks[i], TEAMS[idx] || "??");
-    chars += line.length;
-  }
-  // pause after each line (matches your renderer)
-  return chars * charDelay + picks.length * linePause;
-}
-//END NEW ADDS-01*/
-  
-  // Live role change (manual promotion/removal via /admins)
-  onValue(ref(db, `admins/${myUID}`), (s) => {
-    const now = s.exists() && s.val() === true;
-    if (now !== isController) {
-      isController = now;
-      beginBtn.disabled = finalizeBtn.disabled = drawonceBtn.disabled = !isController;
-      statusEl.textContent = (isController ? 'Controller' : 'Viewer') + `: ${myName} (UID ${myUID.slice(0,8)}…)`;
+  // One-time bootstrap: if roles empty and name is exactly "AceDaAdmin", grant all roles to this UID.
+  async function bootstrapHostIfNamed(){
+    const rolesSnap = await get(ref(db,'roles'));
+    const rolesVal = rolesSnap.exists()? rolesSnap.val():{};
+    const noneSet = !rolesVal || (!rolesVal.hostUid && !rolesVal.executorUid && !rolesVal.finalizerUid);
+    if (myName === "AceDaAdmin" && noneSet){
+      await runTransaction(ref(db,'roles'), (cur)=>{
+        if (cur && (cur.hostUid || cur.executorUid || cur.finalizerUid)) return; // someone beat us
+        return { hostUid: myUID, executorUid: myUID, finalizerUid: myUID };
+      });
     }
+  }
+
+  async function readMyRole(){
+    const r = await get(ref(db,`roles`));
+    const val = r.exists()? r.val():{};
+    role = "viewer";
+    isHost = val.hostUid === myUID;
+    isExecutor = val.executorUid === myUID;
+    isFinalizer = val.finalizerUid === myUID;
+    if (isHost) role="host";
+    if (isExecutor) role="executor";
+    if (isFinalizer) role = (isHost||isExecutor) ? role : "finalizer"; // if only finalizer
+  }
+
+  function wireUIForRole(){
+    // Start toggles control mode globally; anyone can press Start? You didn’t restrict it—leave allowed for host only for safety:
+    startBtn.disabled = !isHost;
+
+    // Only Executor can Begin
+    beginBtn.disabled = !isExecutor;
+
+    // Draw Once enabled by default; Start will disable this and enable Begin
+    drawOnceBtn.disabled = false;
+
+    // Only Finalizer can Finalize; disabled until after >=1 cycle (we gate via state below)
+    finalizeBtn.disabled = !isFinalizer;
+
+    // Speed visible only to Host
+    speedRow.style.display = isHost ? '' : 'none';
+  }
+
+  // ---------- SETTINGS (global speed) ----------
+  onValue(ref(db,'settings'), (snap)=>{
+    const s = snap.val()||{};
+    if (typeof s.speedMs === 'number') globalSpeedMs = s.speedMs;
+    if (typeof s.linePauseMs === 'number') globalLinePauseMs = s.linePauseMs;
+    if (isHost){ speedEl.value = globalSpeedMs; pauseEl.value = globalLinePauseMs; }
   });
 
-  // Audience list (names + short UIDs) — helps you promote in Console
-  onValue(ref(db, 'users'), (snap) => {
-    const users = snap.val() || {};
-    const list = Object.entries(users).map(([uid,u]) => `${(u.displayName||'Viewer')} — ${uid.slice(0,8)}…`);
-    audEl.textContent = 'Connected (saved on first visit): ' + (list.length ? list.join(' | ') : '—');
+  function saveGlobalSpeed(){
+    if (!isHost) return;
+    update(ref(db,'settings'), {
+      speedMs: Number(speedEl.value||30),
+      linePauseMs: Number(pauseEl.value||250)
+    });
+  }
+  speedEl.addEventListener('change', saveGlobalSpeed);
+  pauseEl.addEventListener('change', saveGlobalSpeed);
+
+  // ---------- LIVE USERS (names list for host awareness) ----------
+  onValue(ref(db,'users'), (snap)=>{
+    const users = snap.val()||{};
+    const list = Object.entries(users).map(([uid,u])=>`${(u.displayName||'Viewer')} — ${uid.slice(0,8)}…`);
+    audEl.textContent = 'Connected: ' + (list.length ? list.join(' | ') : '—');
   });
 
-  // Sync state to all clients
-  onValue(ref(db, 'state'), async (snap) => {
-    const s = snap.val(); if (!s) return;
-    const picks = Array.isArray(s.picks) ? s.picks : [];
-    const managers = Array.isArray(s.managers) ? s.managers : [];
-    const charDelay = Number(speedEl.value||30), pauseMs = Number(pauseEl.value||250);
+  // ---------- STATE LISTENER (render + gating) ----------
+  onValue(ref(db,'state'), async (snap)=>{
+    const s = snap.val()||{};
+    // cooldown
+    const now = Date.now();
+    const cooldownUntil = s.cooldownUntil||0;
+    const inCooldown = now < cooldownUntil;
+    if (inCooldown){
+      // countdown display
+      const secs = Math.max(0, Math.ceil((cooldownUntil - now)/1000));
+      cooldownEl.textContent = ` — Finalized. Controls unlock in ${secs}s`;
+      // disable everything but Copy/CSV
+      startBtn.disabled = true;
+      beginBtn.disabled = true;
+      drawOnceBtn.disabled = true;
+      finalizeBtn.disabled = true;
+      const t = setInterval(()=>{
+        const n = Date.now();
+        const ss = Math.max(0, Math.ceil((cooldownUntil - n)/1000));
+        cooldownEl.textContent = ` — Finalized. Controls unlock in ${ss}s`;
+        if (n >= cooldownUntil){ clearInterval(t); cooldownEl.textContent=''; wireUIForRole(); }
+      }, 500);
+    } else {
+      cooldownEl.textContent='';
+      wireUIForRole();
+    }
 
-    out.textContent = "Random Team Assignments:\n\n";
-    runningLocal = !!s.running;
+    // control mode from Start (default "drawonce")
+    const controlMode = s.controlMode || 'drawonce';
+    if (controlMode === 'begin'){
+      beginBtn.disabled = beginBtn.disabled || !isExecutor;
+      drawOnceBtn.disabled = true;
+    } else {
+      drawOnceBtn.disabled = false;
+      if (!isExecutor) beginBtn.disabled = true;
+    }
 
-    for (let i=0; i<Math.min(picks.length, managers.length); i++){
+    // Finalize enabled only after at least one cycle
+    const cycles = s.cyclesCompleted || 0;
+    if (cycles < 1) finalizeBtn.disabled = true || !isFinalizer;
+    else finalizeBtn.disabled = !isFinalizer;
+
+    // track controller
+    localIsController = (s.controllerUid === myUID);
+
+    // live highlight of picks in team list
+    document.querySelectorAll('#teamList li.hit').forEach(li=>li.classList.remove('hit'));
+    (Array.isArray(s.picks)? s.picks:[]).forEach(n=>{
+      const li = document.querySelector(`#teamList li[data-num="${n}"]`);
+      if (li) li.classList.add('hit');
+    });
+
+    // when state ends (running=false) ensure local loop stops
+    if (!s.running){ localContinuous=false; localFinalizeRequested=false; localAnimating=false; beginBtn.classList.remove('on'); finalizeBtn.classList.remove('finalizing'); }
+  });
+
+  // ---------- RENDERER ----------
+  onValue(ref(db,'state'), async (snap)=>{
+    const s = snap.val()||{};
+    const picks = Array.isArray(s.picks)? s.picks : [];
+    const managers = Array.isArray(s.managers)? s.managers : [];
+    const running = !!s.running;
+
+    // output
+    out.textContent = "Random Assignments:\n\n";
+    if (!picks.length || !managers.length) return;
+
+    for (let i=0;i<Math.min(picks.length, managers.length);i++){
       const idx = picks[i]-1;
-      const line = `${managers[i].padEnd(10)} -> ${by(picks[i])} - ${TEAMS[idx] || "??"}\n`;
-      if (runningLocal){
-        for (const ch of line){ if (!runningLocal) break; out.textContent += ch; await sleep(charDelay); }
-        if (!runningLocal) break;
-        await sleep(pauseMs);
-      } else {
-        out.textContent += line;
+      const line = formatLine(managers[i], picks[i], TEAMS[idx] || "??");
+      // typewriter
+      for (const ch of line){
+        out.textContent += ch;
+        await sleep(globalSpeedMs);
+      }
+      await sleep(globalLinePauseMs);
+
+      // controller writes progress index per line (to gate Begin at pick 12)
+      if (localIsController){
+        await update(ref(db,'state'), { currentPickIndex: i+1 });
       }
     }
-    statusEl.textContent = (runningLocal ? 'Live (synced) — ' : '') + (isController ? `Controller: ${myName}` : `Viewer: ${myName}`);
   });
 
-  // Controller writes (manual promotion via /admins only)
-  async function writeState(patch){
-    if (!isController) return;
-    await update(ref(db, 'state'), { ...patch, lastUpdated: Date.now() });
+  // ---------- DRAW LOGIC ----------
+  function computeDrawDuration(picks, managers){
+    let chars = 0;
+    for (let i=0;i<Math.min(picks.length, managers.length);i++){
+      chars += formatLine(managers[i], picks[i], TEAMS[picks[i]-1]||"??").length;
+    }
+    return chars*globalSpeedMs + managers.length*globalLinePauseMs + 200; // small buffer
   }
 
-  // Buttons
-  beginBtn.addEventListener('click', async () => {
-    //${TEAMS.length}
-    if (TEAMS.length !== 265){ alert('There should be exactly 265 NCAAF D1 teams. There are currently ' + TEAMS.length + ' teams in the list.'); return; }
-    if (MANAGERS.length !== 12){ alert('There should be exactly 12 managers. There are currently ' + MANAGERS.length + ' managers in the list.'); return; }
+  async function writeDrawOnce(controller){
+    if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265.'); return 0; }
+    if (MANAGERS.length !== 12){ alert('MANAGERS must be exactly 12.'); return 0; }
     const picks = pick12(TEAMS.length);
-    await writeState({ running:true, picks, managers: shuffle(MANAGERS) });
+    const managers = shuffle(MANAGERS);
+    const duration = computeDrawDuration(picks, managers);
+    await update(ref(db,'state'), {
+      running: true,
+      mode: 'once',
+      controllerUid: controller,
+      picks, managers,
+      currentPickIndex: 0
+    });
+    return duration;
+  }
+
+  async function writeBeginCycle(controller){
+    if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265.'); return 0; }
+    if (MANAGERS.length !== 12){ alert('MANAGERS must be exactly 12.'); return 0; }
+    const picks = pick12(TEAMS.length);
+    const managers = shuffle(MANAGERS);
+    const duration = computeDrawDuration(picks, managers);
+    await update(ref(db,'state'), {
+      running: true,
+      mode: 'continuous',
+      controllerUid: controller,
+      picks, managers,
+      currentPickIndex: 0
+    });
+    return duration;
+  }
+
+  async function finishAndCooldown(){
+    // mark finalized time and 60s cooldown; return roles to host
+    const now = Date.now();
+    // fetch host uid
+    const r = await get(ref(db,'roles')); const val = r.exists()? r.val():{};
+    const hostUid = val.hostUid || null;
+
+    await update(ref(db,'state'), {
+      running:false,
+      finalizeRequested:false,
+      finalizedAt: now,
+      cooldownUntil: now + 60000
+    });
+
+    if (hostUid){
+      await update(ref(db,'roles'), {
+        executorUid: hostUid,
+        finalizerUid: hostUid
+      });
+    }
+
+    // reset control mode so Start is meaningful again
+    await update(ref(db,'state'), { controlMode: 'drawonce' });
+  }
+
+  // ---------- BUTTONS ----------
+  // Start: globally switch control mode to 'begin' (enables Begin, disables Draw Once) — host only
+  startBtn.addEventListener('click', async ()=>{
+    if (!isHost) return;
+    await update(ref(db,'state'), { controlMode:'begin' });
   });
 
-  finalizeBtn.addEventListener('click',  async () => { runningLocal = false; await writeState({ running:false }); });
+  // Begin: continuous loop — only Executor can press; press while current pick==12 is blocked by button gating (uses currentPickIndex)
+  beginBtn.addEventListener('click', async ()=>{
+    if (!isExecutor) return;
+    if (localContinuous) return;
+    beginBtn.classList.add('on');
+    localContinuous = true;
+    localFinalizeRequested = false;
 
-  drawonceBtn.addEventListener('click', async () => {
-    if (TEAMS.length !== 265 || MANAGERS.length !== 12) return;
-    const picks = pick12(TEAMS.length);
-    await writeState({ running:true, picks, managers: shuffle(MANAGERS) });
+    const loop = async ()=>{
+      // prevent pressing while line 12 is being typed: disable via state gate
+      const s = (await get(ref(db,'state'))).val()||{};
+      const idx = s.currentPickIndex||0;
+      if (idx === 12){ await sleep(300); if (localContinuous) return loop(); }
+
+      const dur = await writeBeginCycle(myUID);
+      if (!dur){ localContinuous=false; beginBtn.classList.remove('on'); return; }
+
+      await sleep(dur);
+      if (localFinalizeRequested){
+        // one more, then stop
+        const dur2 = await writeBeginCycle(myUID);
+        await sleep(dur2);
+        localContinuous=false;
+        beginBtn.classList.remove('on');
+        await finishAndCooldown();
+        return;
+      }
+      if (localContinuous) loop();
+    };
+    loop();
+  });
+
+  // Draw Once: toggle start/stop semantics
+  drawOnceBtn.addEventListener('click', async ()=>{
+    const s = (await get(ref(db,'state'))).val()||{};
+    const running = !!s.running && s.mode==='once';
+    if (!running){
+      stopRequestedOnce = false;
+      const dur = await writeDrawOnce(myUID);
+      await sleep(dur);
+      // auto-stop; cyclesCompleted++
+      const prev = (await get(ref(db,'state'))).val()||{};
+      const cyc = (prev.cyclesCompleted||0)+1;
+      await update(ref(db,'state'), { running:false, cyclesCompleted:cyc });
+      return;
+    } else {
+      // If already drawing once: act as stop — let current draw finish but don't start a new one
+      stopRequestedOnce = true;
+      // We don't interrupt typing; when it ends, running=false
+      // No extra action needed here; controller renderer doesn’t need writes.
+      return;
+    }
+  });
+
+  // Finalize: only Finalizer; allowed only if cyclesCompleted>=1. If pressed during Begin loop, finish current + one more, then cooldown.
+  finalizeBtn.addEventListener('click', async ()=>{
+    if (!isFinalizer) return;
+    finalizeBtn.classList.add('finalizing');
+    const s = (await get(ref(db,'state'))).val()||{};
+    if (s.mode==='continuous' && s.running){
+      localFinalizeRequested = true; // controller’s loop will see this and stop after +1
+      await update(ref(db,'state'), { finalizeRequested:true });
+    } else {
+      // If not running continuous, just enter cooldown immediately (after one draw finishes).
+      // Ensure we don't cut a draw mid-stream: wait for currentPickIndex to reach 12 if running once.
+      if (s.running && s.mode==='once'){
+        // wait until pick 12 completes
+        while(true){
+          const cur = (await get(ref(db,'state'))).val()||{};
+          if ((cur.currentPickIndex||0) >= 12) break;
+          await sleep(200);
+        }
+      }
+      await finishAndCooldown();
+      finalizeBtn.classList.remove('finalizing');
+    }
   });
 
   // Copy / CSV
@@ -304,22 +537,30 @@ function computeDrawDuration(picks, players, charDelay, linePause) {
   csvBtn.addEventListener('click', ()=>{
     const lines = out.textContent.trim().split('\n').slice(2).filter(x=>x.includes('->'));
     const rows = lines.map(line=>{
-      const [left, right] = line.split('->').map(s=>s.trim());
+      const [left,right] = line.split('->').map(s=>s.trim());
       const [num, ...teamParts] = right.split(' - ');
       const team = teamParts.join(' - ');
       return `"${left}","${num}","${team}"`;
     }).join('\n');
     const csv = "Manager,TeamNumber,Team\n"+rows+"\n";
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob); const a=document.createElement('a');
-    a.href=url; a.download='assignments.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='assignments.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   });
 
-  // Hotkeys
+  // Hotkeys: Space = Begin (if executor) / stop loop; R = Draw Once
   document.addEventListener('keydown', (e)=>{
-    if (e.code==='Space'){ e.preventDefault(); runningLocal ? finalizeBtn.click() : beginBtn.click(); }
-    if (e.key.toLowerCase()==='r'){ e.preventDefault(); drawonceBtn.click(); }
+    if (e.code==='Space'){ e.preventDefault(); if (isExecutor) beginBtn.click(); }
+    if (e.key.toLowerCase()==='r'){ e.preventDefault(); drawOnceBtn.click(); }
   });
+
+  // Validate data presence
+  if (TEAMS.length !== 265){
+    out.textContent = "ERROR: TEAMS must contain exactly 265 items.\n\nAdd your full list in the TEAMS array.";
+  }
+  if (MANAGERS.length !== 12){
+    out.textContent += "\nERROR: MANAGERS must contain exactly 12 items.";
+  }
 </script>
 </body>
 </html>
