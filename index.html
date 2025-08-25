@@ -3,57 +3,66 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>D1 NCAAF Random Assign (Synced)</title>
+<title>Randomly Assign NCAAF D1 Teams</title>
 <style>
-  :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; --ok:#79ffa1; --warn:#ffd479; --danger:#ff7b7b; }
+  :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; --ok:#79ffa1; --warn:#ffd479; }
   *{box-sizing:border-box}
   body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--text)}
   .wrap{max-width:1200px;margin:32px auto;padding:0 16px}
   h1{margin:0 0 10px;font-size:28px}
-  p{color:var(--muted);margin:0 0 18px}
   .grid{display:grid;grid-template-columns: 1fr 1fr; gap:16px}
   @media(max-width:1000px){.grid{grid-template-columns:1fr}}
   .card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
   .muted{color:var(--muted);font-size:13px}
   .small{font-size:12px;color:#a9afd1}
-  .listbox{height:28vh;overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
   .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
+
+  /* top-left: Managers (auto height, no scroll by default) */
+  .listbox-auto {overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530;max-height:26vh;}
+  ul.managers{margin:0;padding-left:20px;line-height:1.35}
+  ul.managers li{margin:2px 0}
+
+  /* top-right: Teams (taller, scrolls; uses more vertical space) */
+  .listbox-tall {height:38vh;overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
   ol.teamlist{margin:0;padding-left:36px;line-height:1.3}
   ol.teamlist li{padding:3px 6px;border-radius:8px;white-space:nowrap; list-style: decimal}
   ol.teamlist li.hit{background:rgba(122,162,255,.18);outline:1px solid rgba(122,162,255,.35);font-weight:600}
-  ul.managers{margin:0;padding-left:20px;line-height:1.35}
-  ul.managers li{margin:2px 0}
-  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+
+  /* output spans full width */
+  .wide{grid-column: 1 / span 2;}
+  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:46vh;overflow:auto;white-space:pre}
+
+  /* footer controls below output */
+  .controlsFooter{margin-top:8px;background:#0f1530;border:1px solid #2a3252;border-radius:12px;padding:10px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
   .btn{background:#1d2544;color:var(--text);border:1px solid #2a3252;border-radius:10px;padding:10px 14px;cursor:pointer;transition:.15s transform ease,.15s opacity ease}
   .btn:hover{transform:translateY(-1px);opacity:.95}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   .btn.primary{background:var(--accent);color:#0a0e1f;border-color:#5b86ff}
   .btn.on{outline:2px solid var(--ok);box-shadow:0 0 0 4px rgba(121,255,161,.12) inset}
   .btn.finalizing{outline:2px solid var(--warn);box-shadow:0 0 0 4px rgba(255,212,121,.12) inset}
-  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:50vh;overflow:auto;white-space:pre}
-  .wide{grid-column: 1 / span 2;} /* output spans full width to limit wrapping */
+
+  /* host-only speed controls (hidden for others) */
   #speedRow{display:none;margin-top:10px}
   .pill{background:#101736;border:1px solid #2a3252;padding:8px 10px;border-radius:10px}
-  .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1d2544;color:#cfe0ff;font-size:12px;margin-left:8px}
-  .row{display:flex;gap:16px}
-  .row>div{flex:1}
+
   .countdown{font-weight:700;color:var(--warn)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>D1 NCAAF Random Assign <span class="badge">Managers: 12 • Teams: 265</span></h1>
-  <p class="muted">Roles: <b>Host</b>, <b>Executor</b> (Begin), <b>Finalizer</b> (Finalize). Start only toggles control mode. Draw Once operates as start/stop per cycle. Managers/Teams are fixed (read-only).</p>
+  <h1>Randomly Assign NCAAF D1 Teams</h1>
+  <!-- Roles line intentionally removed from the page per your request. (Kept logic in code.) -->
 
   <div class="grid">
-    <!-- Left: Managers (read-only, bulleted) -->
+    <!-- Left: Managers (bulleted, no default scrollbar) -->
     <div class="card">
-      <div class="muted">Managers (fixed)</div>
-      <div class="listbox">
+      <div class="muted">Managers</div>
+      <div class="listbox-auto">
         <ul id="managersList" class="managers"></ul>
       </div>
 
-      <!-- Speed (host-only, global) -->
+      <!-- Host-only global speed (hidden for others) -->
       <div id="speedRow" class="row">
         <div class="pill">
           <div class="muted">Speed (ms/char)</div>
@@ -64,40 +73,42 @@
           <input id="linePause" type="number" min="0" value="250" />
         </div>
       </div>
-
-      <!-- Controls -->
-      <div class="controls">
-        <button id="start"    class="btn">Start</button>
-        <button id="begin"    class="btn primary" disabled>Begin</button>
-        <button id="drawOnce" class="btn">Draw Once</button>
-        <button id="finalize" class="btn" disabled>Finalize</button>
-        <button id="copy"     class="btn">Copy</button>
-        <button id="csv"      class="btn">Export CSV</button>
-      </div>
-      <div class="muted" id="status">Connecting…</div>
-      <div class="small" id="audience"></div>
-      <div class="small">Hotkeys: <b>Space</b> Begin/stop in your role • <b>R</b> Draw Once</div>
     </div>
 
-    <!-- Right: Teams list (scrollable, numbered once via <ol>) -->
+    <!-- Right: Teams -->
     <div class="card">
-      <div class="muted">Teams (1–265)</div>
-      <div class="listbox">
+      <div class="muted">1–265 NCAAF D1 Teams</div>
+      <div class="listbox-tall">
         <ol id="teamList" class="teamlist mono"></ol>
       </div>
     </div>
 
-    <!-- Output spanning full width -->
+    <!-- Output -->
     <div class="card wide">
       <div class="muted">Output <span id="cooldown" class="countdown"></span></div>
       <div id="out" class="out"></div>
     </div>
   </div>
+
+  <!-- FOOTER: controls + status (separate from grid, visually attached to output) -->
+  <div class="controlsFooter">
+    <div class="controls">
+      <button id="start"    class="btn">Start</button>
+      <button id="begin"    class="btn primary" disabled>Begin</button>
+      <button id="drawOnce" class="btn">Draw Once</button>
+      <button id="finalize" class="btn" disabled>Finalize</button>
+      <button id="copy"     class="btn">Copy</button>
+      <button id="csv"      class="btn">Export CSV</button>
+    </div>
+    <div class="small" id="status">Connecting…</div>
+    <div class="small" id="audience"></div>
+    <div class="small">Hotkeys: <b>Space</b> Begin/stop in your role • <b>R</b> Draw Once</div>
+  </div>
 </div>
 
 <script type="module">
   /* ===================== FIXED DATA (READ-ONLY) ===================== */
-  // Complete FBS + FCS list (265). If you tweak names, keep it at 265.
+  // 👉 Paste your exact list from your last message here (265 items, exactly as written):
   const TEAMS = [
 "Abilene Christian University","Alabama A&M University","Alabama State University","Alcorn State University","Appalachian State University","Arizona State University",
   "Arkansas State University","Auburn University","Austin Peay State University","Ball State University","Baylor University","Bethune-Cookman University",
@@ -144,7 +155,7 @@
   "Western Michigan University","William & Mary","Wofford College","Yale University","Youngstown State University"            
 ];
 
-  // Managers (12, read-only)
+  // Managers (12)
   const MANAGERS = ["AP","AW","CR","JW","MS","LL","Josh","FAB","JJ","EJ","DA","CO"];
   /* ================================================================== */
 
@@ -168,7 +179,7 @@
   const auth = getAuth(app);
   const db   = getDatabase(app);
 
-  // ---------- UI REFS ----------
+  // ---------- UI refs ----------
   const out = document.getElementById('out');
   const teamList = document.getElementById('teamList');
   const managersList = document.getElementById('managersList');
@@ -185,35 +196,33 @@
   const csvBtn = document.getElementById('csv');
   const cooldownEl = document.getElementById('cooldown');
 
-  // ---------- HELPERS ----------
+  // ---------- helpers ----------
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
   function pick12(n){ const idx=[...Array(n).keys()].map(i=>i+1); return shuffle(idx).slice(0,12).sort((a,b)=>a-b); }
   const pad3 = (n)=>String(n).padStart(3,' ');
   const formatLine = (m, num, team)=>`${m.padEnd(10)} -> ${pad3(num)} - ${team}\n`;
 
-  // Render managers (bulleted) and teams (numbered via <ol>)
+  // Render static lists
   managersList.innerHTML = MANAGERS.map(m=>`<li>${m}</li>`).join('');
-  teamList.innerHTML = TEAMS.map((t,i)=> `<li data-num="${i+1}">${t}</li>`).join('');
+  teamList.innerHTML = TEAMS.map((_t,i)=> `<li data-num="${i+1}">${_t}</li>`).join('');
 
-  // ---------- GLOBAL STATE ----------
+  // ---------- global state ----------
   let myUID=null, myName="Viewer";
-  let role="viewer"; // viewer|host|executor|finalizer
   let isHost=false, isExecutor=false, isFinalizer=false;
   let globalSpeedMs=30, globalLinePauseMs=250;
-
   let localIsController=false;
   let localContinuous=false;
   let localFinalizeRequested=false;
 
-  // ---------- AUTH ----------
+  // ---------- auth ----------
   onAuthStateChanged(auth, async (user)=>{
     if (!user){ await signInAnonymously(auth); return; }
     myUID = user.uid;
     await ensureDisplayName();
     await bootstrapHostIfNamed();
     await readMyRole();
-    statusEl.textContent = `${role.toUpperCase()}: ${myName} (${myUID.slice(0,8)}…)`;
+    statusEl.textContent = `${(isHost?'HOST':isExecutor?'EXECUTOR':isFinalizer?'FINALIZER':'VIEWER')}: ${myName} (${myUID.slice(0,8)}…)`;
     wireUIForRole();
   });
 
@@ -227,7 +236,7 @@
     myName = name;
   }
 
-  // Bootstrap: if roles are empty and name is exactly "AceDaAdmin" (case-sensitive), grant all three roles to this UID.
+  // Bootstrap: first user named EXACTLY "AceDaAdmin" takes host/executor/finalizer if roles are empty.
   async function bootstrapHostIfNamed(){
     const rolesSnap = await get(ref(db,'roles'));
     const rolesVal = rolesSnap.exists()? rolesSnap.val():{};
@@ -245,22 +254,22 @@
     isHost = val.hostUid === myUID;
     isExecutor = val.executorUid === myUID;
     isFinalizer = val.finalizerUid === myUID;
-    role = isHost ? 'host' : (isExecutor ? 'executor' : (isFinalizer ? 'finalizer' : 'viewer'));
   }
 
   function wireUIForRole(){
     // Start (host toggles control mode)
     startBtn.disabled = !isHost;
-    // Begin only Executor, Finalize only Finalizer
-    beginBtn.disabled = !isExecutor;
-    finalizeBtn.disabled = !isFinalizer;
-    // Draw Once enabled by default; Start may disable via controlMode
+    // Begin only Executor (but still requires controlMode 'begin' to enable)
+    beginBtn.disabled = true;
+    // Finalizer-only (but first gated by cyclesCompleted >= 1 in state listener)
+    finalizeBtn.disabled = true;
+    // Draw Once enabled by default; Start may disable it via controlMode
     drawOnceBtn.disabled = false;
     // Host-only speed controls
     speedRow.style.display = isHost ? '' : 'none';
   }
 
-  // ---------- SETTINGS (global speed) ----------
+  // ---------- settings (global speed) ----------
   onValue(ref(db,'settings'), (snap)=>{
     const s = snap.val()||{};
     if (typeof s.speedMs === 'number') globalSpeedMs = s.speedMs;
@@ -270,21 +279,22 @@
   const saveGlobalSpeed = ()=>{ if (!isHost) return; update(ref(db,'settings'), {
     speedMs: Number(speedEl.value||30), linePauseMs: Number(pauseEl.value||250)
   }); };
-  speedEl.addEventListener('change', saveGlobalSpeed);
-  pauseEl.addEventListener('change', saveGlobalSpeed);
+  document.getElementById('speed')?.addEventListener('change', saveGlobalSpeed);
+  document.getElementById('linePause')?.addEventListener('change', saveGlobalSpeed);
 
-  // ---------- LIVE USERS ----------
+  // ---------- live users (for display) ----------
   onValue(ref(db,'users'), (snap)=>{
     const users = snap.val()||{};
     const list = Object.entries(users).map(([uid,u])=>`${(u.displayName||'Viewer')} — ${uid.slice(0,8)}…`);
     audEl.textContent = 'Connected: ' + (list.length ? list.join(' | ') : '—');
   });
 
-  // ---------- STATE LISTENER (UI gating + highlights) ----------
+  // ---------- state listener: gating + highlights + cooldown ----------
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
-    // cooldown gating
     const now = Date.now(), until = s.cooldownUntil||0;
+
+    // cooldown
     if (now < until){
       const tick = ()=> {
         const n = Date.now();
@@ -295,19 +305,19 @@
       startBtn.disabled = beginBtn.disabled = drawOnceBtn.disabled = finalizeBtn.disabled = true;
       const timer = setInterval(tick, 500); tick();
     } else {
-      cooldownEl.textContent=''; wireUIForRole();
+      cooldownEl.textContent='';
+      // base role gating
+      startBtn.disabled = !isHost;
+      drawOnceBtn.disabled = false;
+      // Begin only enabled if controlMode === 'begin' AND user is Executor
+      const mode = s.controlMode || 'drawonce';
+      beginBtn.disabled = !(mode === 'begin' && isExecutor);
+      // Finalize enabled only if cyclesCompleted >= 1 AND user is Finalizer
+      const cycles = s.cyclesCompleted || 0;
+      finalizeBtn.disabled = !(cycles >= 1 && isFinalizer);
     }
 
-    // control mode (from Start)
-    const controlMode = s.controlMode || 'drawonce';
-    if (controlMode === 'begin'){ drawOnceBtn.disabled = true; beginBtn.disabled = beginBtn.disabled || !isExecutor; }
-    else { drawOnceBtn.disabled = false; if (!isExecutor) beginBtn.disabled = true; }
-
-    // Finalize only after at least one cycle
-    const cycles = s.cyclesCompleted || 0;
-    if (cycles < 1) finalizeBtn.disabled = true || !isFinalizer;
-
-    // track controller + highlight draws
+    // controller + team highlights
     localIsController = (s.controllerUid === myUID);
     document.querySelectorAll('#teamList li.hit').forEach(li=>li.classList.remove('hit'));
     (Array.isArray(s.picks)? s.picks:[]).forEach(n=>{
@@ -315,15 +325,19 @@
       if (li) li.classList.add('hit');
     });
 
+    // if the state stops, clear button styles
     if (!s.running){ localContinuous=false; localFinalizeRequested=false; beginBtn.classList.remove('on'); finalizeBtn.classList.remove('finalizing'); }
   });
 
-  // ---------- RENDERER ----------
+  // ---------- renderer (ONLY animates when running === true) ----------
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
     const picks = Array.isArray(s.picks)? s.picks : [];
     const managers = Array.isArray(s.managers)? s.managers : [];
-    if (!picks.length || !managers.length){ out.textContent=""; return; }
+    const running = !!s.running;
+
+    // Do nothing until a button actually starts a draw
+    if (!running || !picks.length || !managers.length){ out.textContent=""; return; }
 
     out.textContent = "Random Assignments:\n\n";
     for (let i=0;i<Math.min(picks.length, managers.length);i++){
@@ -335,7 +349,7 @@
     }
   });
 
-  // ---------- DRAW LOGIC ----------
+  // ---------- draw helpers ----------
   function computeDrawDuration(picks, managers){
     let chars = 0;
     for (let i=0;i<Math.min(picks.length, managers.length);i++){
@@ -367,14 +381,20 @@
     if (hostUid){ await update(ref(db,'roles'), { executorUid: hostUid, finalizerUid: hostUid }); }
   }
 
-  // ---------- BUTTONS ----------
-  startBtn.addEventListener('click', async ()=>{ if (!isHost) return; await update(ref(db,'state'), { controlMode:'begin' }); });
+  // ---------- buttons ----------
+  // Start flips controlMode → only Host
+  startBtn.addEventListener('click', async ()=>{ 
+    // Start enables Begin & disables Draw Once (global)
+    await update(ref(db,'state'), { controlMode:'begin' });
+  });
 
+  // Begin = continuous loop → Executor only; blocked while pick 12 is rendering
   beginBtn.addEventListener('click', async ()=>{
-    if (!isExecutor || localContinuous) return;
-    // block if last pick is being drawn
-    const st = (await get(ref(db,'state'))).val()||{};
-    if ((st.currentPickIndex||0) === 12) return;
+    const s = (await get(ref(db,'state'))).val()||{};
+    const mode = s.controlMode || 'drawonce';
+    if (!(isExecutor && mode==='begin')) return;
+    if (localContinuous) return;
+    if ((s.currentPickIndex||0) === 12) return;
 
     beginBtn.classList.add('on');
     localContinuous = true; localFinalizeRequested=false;
@@ -395,8 +415,8 @@
     loop();
   });
 
+  // Draw Once acts as its own stop (just one cycle)
   drawOnceBtn.addEventListener('click', async ()=>{
-    // Toggle start/stop for single draw
     const s = (await get(ref(db,'state'))).val()||{};
     const running = !!s.running && s.mode==='once';
     if (!running){
@@ -406,10 +426,11 @@
       const cyc = (prev.cyclesCompleted||0)+1;
       await update(ref(db,'state'), { running:false, cyclesCompleted:cyc });
     } else {
-      // no immediate action; current draw completes and stops
+      // do nothing; current once-draw finishes then stops
     }
   });
 
+  // Finalize: only Finalizer; if in continuous, completes current + one more, then cooldown
   finalizeBtn.addEventListener('click', async ()=>{
     if (!isFinalizer) return;
     finalizeBtn.classList.add('finalizing');
@@ -426,6 +447,7 @@
     }
   });
 
+  // Copy / CSV
   copyBtn.addEventListener('click', async ()=>{ await navigator.clipboard.writeText(out.textContent); statusEl.textContent='Output copied'; setTimeout(()=>statusEl.textContent='',1500); });
   csvBtn.addEventListener('click', ()=>{
     const lines = out.textContent.trim().split('\n').slice(2).filter(x=>x.includes('->'));
@@ -440,13 +462,14 @@
     const a=document.createElement('a'); a.href=url; a.download='assignments.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   });
 
+  // Hotkeys
   document.addEventListener('keydown', (e)=>{
-    if (e.code==='Space'){ e.preventDefault(); if (isExecutor) beginBtn.click(); }
-    if (e.key.toLowerCase()==='r'){ e.preventDefault(); drawOnceBtn.click(); }
+    if (e.code==='Space'){ e.preventDefault(); if (!beginBtn.disabled) beginBtn.click(); }
+    if (e.key.toLowerCase()==='r'){ e.preventDefault(); if (!drawOnceBtn.disabled) drawOnceBtn.click(); }
   });
 
-  // Validate data quickly
-  if (TEAMS.length !== 265) out.textContent = "ERROR: TEAMS must contain exactly 265 items.\nAdd your full list in the TEAMS array.";
+  // quick data guard (shows error but does nothing until you hit a button)
+  if (TEAMS.length !== 265) out.textContent = "ERROR: TEAMS must contain exactly 265 items.\nPaste your full list into the TEAMS array.";
   if (MANAGERS.length !== 12) out.textContent += "\nERROR: MANAGERS must contain exactly 12 items.";
 </script>
 </body>
