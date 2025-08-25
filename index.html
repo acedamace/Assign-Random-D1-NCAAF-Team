@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Randomly Assign NCAAF D1 Teams</title>
 <style>
-  :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; --ok:#79ffa1; --warn:#ffd479; }
+  :root { --bg:#0b1020; --card:#141a2e; --text:#e8ebff; --muted:#a9afd1; --accent:#7aa2ff; --ok:#79ffa1; --warn:#ffd479; --bad:#ff7a7a; }
   *{box-sizing:border-box}
   body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--text)}
-  .wrap{max-width:1300px;margin:32px auto;padding:0 16px} /* widened ~100px */
+  .wrap{max-width:1300px;margin:32px auto;padding:0 16px}
   h1{margin:0 0 14px;font-size:28px;text-align:center}
 
   .grid{display:grid;grid-template-columns: 1fr 1fr; gap:14px}
@@ -18,19 +18,25 @@
   .small{font-size:12px;color:#a9afd1}
   .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
 
-  /* Managers: no scrollbar; shows all 12 */
+  /* Managers */
   .box-managers{border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
   ul.managers{margin:0;padding-left:20px;line-height:1.4}
   ul.managers li{margin:2px 0}
 
-  /* Teams: preferred smaller height; scroll fills card */
+  /* Teams (scroll inside card) */
   .box-teams{height:34vh;overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
-  ol.teamlist{margin:0;padding-left:36px;line-height:1.25}
-  ol.teamlist li{padding:2px 6px;border-radius:8px;white-space:nowrap; list-style: decimal}
+  ol.teamlist{margin:0;padding-left:36px;line-height:1.25; white-space:nowrap}
+  ol.teamlist li{padding:2px 6px;border-radius:8px; list-style: decimal}
   ol.teamlist li.hit{background:rgba(122,162,255,.18);outline:1px solid rgba(122,162,255,.35);font-weight:600}
+  ol.teamlist li.omitted{color:var(--bad); text-decoration: line-through}
 
-  /* Output area split into two equal columns */
+  /* Omitted Teams panel */
   .wide{grid-column: 1 / span 2;}
+  .omitRow{display:grid; grid-template-columns:1fr; gap:12px}
+  .omitBox{background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:10px}
+  .omitBox textarea{width:100%; min-height:90px; background:#0c1230; color:var(--text); border:1px solid #2a3252; border-radius:8px; padding:8px; resize:vertical; font-family:ui-monospace,Consolas,Menlo,monospace}
+
+  /* Output (two equal columns) */
   .outGrid{display:grid;grid-template-columns:1fr 1fr; gap:12px}
   .outBox{
     font-family:ui-monospace,Consolas,Menlo,monospace;
@@ -62,8 +68,8 @@
 <div class="wrap">
   <h1>Randomly Assign NCAAF D1 Teams</h1>
 
+  <!-- Top: Managers + Teams -->
   <div class="grid">
-    <!-- Left: Managers -->
     <div class="card">
       <div class="muted">Managers</div>
       <div class="box-managers">
@@ -83,31 +89,41 @@
       </div>
     </div>
 
-    <!-- Right: Teams -->
     <div class="card">
       <div class="muted">12 of 265 NCAAF D1 teams will be randomly selected.</div>
       <div class="box-teams">
         <ol id="teamList" class="teamlist mono"></ol>
       </div>
     </div>
+  </div>
 
-    <!-- Output (two panes) -->
-    <div class="card wide">
-      <div class="muted">Output <span id="cooldown" class="countdown"></span></div>
-      <div class="outGrid">
-        <div>
-          <div class="outTitle">Last Completed Draw</div>
-          <div id="outPrev" class="outBox"></div>
-        </div>
-        <div>
-          <div class="outTitle">Live (Randomly assigning teams....)</div>
-          <div id="outLive" class="outBox"></div>
-        </div>
+  <!-- Middle: Omitted Teams (host edits, viewable to all) -->
+  <div class="card wide">
+    <div class="muted">Omitted Teams (host only; separate teams with “;”)</div>
+    <div class="omitRow">
+      <div class="omitBox">
+        <textarea id="omitText" placeholder="Example: Villanova University; University of Utah; ..."></textarea>
+        <div class="small" id="omitHelp">Omitted teams will be struck out in red in the list and will not be assigned.</div>
       </div>
     </div>
   </div>
 
-  <!-- FOOTER: controls + status -->
+  <!-- Bottom: Output (two panes) -->
+  <div class="card wide">
+    <div class="muted">Output <span id="cooldown" class="countdown"></span></div>
+    <div class="outGrid">
+      <div>
+        <div class="outTitle">Last Completed Draw</div>
+        <div id="outPrev" class="outBox"></div>
+      </div>
+      <div>
+        <div class="outTitle">Live (Randomly assigning teams....)</div>
+        <div id="outLive" class="outBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
   <div class="controlsFooter">
     <div class="controls">
       <button id="start"    class="btn">Start</button>
@@ -125,8 +141,8 @@
 </div>
 
 <script type="module">
-  /* ===================== FIXED DATA (READ-ONLY) ===================== */
-  // 👉 Paste your exact 265-name University/College list here. Keep it at 265.
+  /* ===================== FIXED DATA ===================== */
+  // Paste your exact 265-name list here (must be 265).
   const TEAMS = [
 "Abilene Christian University","Alabama A&M University","Alabama State University","Alcorn State University","Appalachian State University","Arizona State University",
   "Arkansas State University","Auburn University","Austin Peay State University","Ball State University","Baylor University","Bethune-Cookman University",
@@ -173,9 +189,9 @@
   "Western Michigan University","William & Mary","Wofford College","Yale University","Youngstown State University"            
 ];
 
-  // Managers (12)
+  // Managers (12) — DA -> DS
   const MANAGERS = ["AP","AW","CR","JW","MS","LL","Josh","FAB","JJ","EJ","DS","CO"];
-  /* ================================================================== */
+  /* ===================================================== */
 
   // ---------- Firebase (CDN) ----------
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -197,8 +213,8 @@
   const db   = getDatabase(app);
 
   // ---------- UI refs ----------
-  const outPrev = document.getElementById('outPrev');   // Last Completed Draw
-  const outLive = document.getElementById('outLive');   // Live typewriter
+  const outPrev = document.getElementById('outPrev');
+  const outLive = document.getElementById('outLive');
   const teamList = document.getElementById('teamList');
   const managersList = document.getElementById('managersList');
   const statusEl = document.getElementById('status');
@@ -214,13 +230,55 @@
   const copyBtn = document.getElementById('copy');
   const csvBtn = document.getElementById('csv');
   const cooldownEl = document.getElementById('cooldown');
+  const omitText = document.getElementById('omitText');
 
   // ---------- helpers ----------
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
-  function pick12(n){ const idx=[...Array(n).keys()].map(i=>i+1); return shuffle(idx).slice(0,12).sort((a,b)=>a-b); }
-  const pad3 = (n)=>String(n).padStart(3,' ');
-  const formatLine = (m, num, team)=>`${m.padEnd(10)} -> ${pad3(num)} - ${team}\n`; // single trailing \n
+  function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j]]=[a[j],a[i]][1]; } return a; } // swap trick
+  function pad3(n){ return String(n).padStart(3,' '); }
+  const formatLine = (m, num, team)=>`${m.padEnd(10)} -> ${pad3(num)} - ${team}\n`;
+
+  // pick N from allowed indices
+  function pickNFromAllowed(allowedIdx, n){
+    if (allowedIdx.length < n) return null;
+    const arr = shuffle(allowedIdx).slice(0, n).sort((a,b)=>a-b);
+    return arr;
+  }
+
+  // Parse omitted as semicolon-separated; trims spaces
+  function parseOmitted(text){
+    const raw = (text||'').split(';').map(s=>s.trim()).filter(Boolean);
+    return raw;
+  }
+
+  // map name to team index (exact match)
+  const teamIndexByName = new Map(TEAMS.map((t,i)=>[t, i+1]));
+
+  function validateOmittedNames(list){
+    const mismatches = [];
+    for (const name of list){
+      if (!teamIndexByName.has(name)) mismatches.push(name);
+    }
+    return mismatches;
+  }
+
+  function allowedIndicesFromOmitted(list){
+    const omitSet = new Set(list.map(name=>teamIndexByName.get(name))); // numbers
+    const allowed = [];
+    for (let i=1;i<=TEAMS.length;i++){
+      if (!omitSet.has(i)) allowed.push(i);
+    }
+    return {allowed, omitSet};
+  }
+
+  // update teams list strike-through styles
+  function renderTeamStrikes(omitSet){
+    document.querySelectorAll('#teamList li').forEach(li=>{
+      const num = Number(li.getAttribute('data-num'));
+      if (omitSet.has(num)) { li.classList.add('omitted'); }
+      else { li.classList.remove('omitted'); }
+    });
+  }
 
   // Render static lists
   managersList.innerHTML = MANAGERS.map(m=>`<li>${m}</li>`).join('');
@@ -233,14 +291,14 @@
   let localIsController=false;
   let localContinuous=false;
   let localFinalizeRequested=false;
-  let fastForward = false; // fast-finish Draw Once
-  let hasBegun = false;    // Begin session is active
+  let fastForward = false;
+  let hasBegun = false;
 
   // renderer guards
   let animating = false;
   let activeSeq = null;
 
-  // cooldown timer singleton
+  // cooldown timer
   let cooldownTimer = null;
 
   // ---------- auth ----------
@@ -264,7 +322,6 @@
     myName = name;
   }
 
-  // Bootstrap AceDaAdmin if roles empty
   async function bootstrapHostIfNamed(){
     const rolesSnap = await get(ref(db,'roles'));
     const rolesVal = rolesSnap.exists()? rolesSnap.val():{};
@@ -291,9 +348,10 @@
     drawOnceBtn.disabled = false;
     clearBtn.style.display = isHost ? '' : 'none';
     speedRow.style.display = isHost ? '' : 'none';
+    omitText.disabled = !isHost; // only host can edit
   }
 
-  // Live roles listener (keeps host-only UI visible)
+  // Roles & settings listeners
   onValue(ref(db,'roles'), (snap)=>{
     const val = snap.val()||{};
     isHost = val.hostUid === myUID;
@@ -301,9 +359,9 @@
     isFinalizer = val.finalizerUid === myUID;
     clearBtn.style.display = isHost ? '' : 'none';
     speedRow.style.display = isHost ? '' : 'none';
+    omitText.disabled = !isHost;
   });
 
-  // ---------- settings (global speed) ----------
   onValue(ref(db,'settings'), (snap)=>{
     const s = snap.val()||{};
     if (typeof s.speedMs === 'number') globalSpeedMs = s.speedMs;
@@ -316,28 +374,41 @@
   speedEl.addEventListener('change', saveGlobalSpeed);
   pauseEl.addEventListener('change', saveGlobalSpeed);
 
-  // ---------- live users ----------
+  // Persist omitted text (host updates)
+  omitText.addEventListener('change', async ()=>{
+    if (!isHost || omitText.disabled) return;
+    await update(ref(db,'state'), { omittedTeamsText: omitText.value });
+  });
+  // Mirror omitted from DB to UI, and strike teams
+  onValue(ref(db,'state/omittedTeamsText'), (snap)=>{
+    const txt = snap.val()||'';
+    if (omitText.value !== txt) omitText.value = txt;
+    const list = parseOmitted(txt);
+    const {omitSet} = allowedIndicesFromOmitted(list);
+    renderTeamStrikes(omitSet);
+  });
+
+  // Users list
   onValue(ref(db,'users'), (snap)=>{
     const users = snap.val()||{};
     const list = Object.entries(users).map(([uid,u])=>`${(u.displayName||'Viewer')} — ${uid.slice(0,8)}…`);
     audEl.textContent = 'Connected: ' + (list.length ? list.join(' | ') : '—');
   });
 
-  // ========== UI LISTENER (cooldown, buttons, highlights, Last Draw mirror) ==========
+  // ---------- UI state & gating ----------
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
     const now = Date.now();
     const until = s.cooldownUntil||0;
 
-    // sync flags
     fastForward = !!s.fastForward;
     hasBegun = !!s.hasBegun;
 
-    // mirror Last Completed Draw text (never cleared by Start)
+    // Last Completed Draw
     const lastText = s.lastResultText || '';
     if (outPrev.textContent !== lastText){ outPrev.textContent = lastText; }
 
-    // Cooldown
+    // Cooldown & disable regions
     if (now < until){
       if (!cooldownTimer){
         const tick = ()=>{
@@ -355,13 +426,15 @@
         tick();
       }
       startBtn.disabled = beginBtn.disabled = drawOnceBtn.disabled = finalizeBtn.disabled = clearBtn.disabled = true;
+      omitText.disabled = true; // lock omitted during cooldown
     } else {
       cooldownEl.textContent='';
       const mode = s.controlMode || 'drawonce';
       const running = !!s.running;
       const runningOnce = running && s.mode === 'once';
+      const controllerUid = s.controllerUid;
 
-      // controller & highlights
+      // highlights
       document.querySelectorAll('#teamList li.hit').forEach(li=>li.classList.remove('hit'));
       (Array.isArray(s.picks)? s.picks:[]).forEach(n=>{
         const li = document.querySelector(`#teamList li[data-num="${n}"]`);
@@ -373,14 +446,17 @@
       beginBtn.disabled   = !(mode === 'begin' && isExecutor) || runningOnce || running;
       drawOnceBtn.disabled= (mode === 'begin') && !runningOnce ? true : false;
       if (runningOnce) drawOnceBtn.disabled = false; // allow fast-forward
-
       // Finalize only after Begin
       finalizeBtn.disabled = !(hasBegun && isFinalizer) || runningOnce;
-
-      // Clear (host-only): disabled after Start (hasBegun true), and during Draw Once
+      // Clear: disabled after Start (hasBegun true) and during Draw Once
       clearBtn.disabled = !isHost || runningOnce || mode === 'begin' || hasBegun;
 
-      // Visual reset when stopped
+      // Omitted editor lock: editable only for host & only when Start is available and not running
+      omitText.disabled = !isHost || runningOnce || mode === 'begin' || hasBegun;
+
+      // controller tracking
+      localIsController = (controllerUid === myUID);
+
       if (!s.running){
         localContinuous=false; localFinalizeRequested=false;
         beginBtn.classList.remove('on'); finalizeBtn.classList.remove('finalizing');
@@ -388,7 +464,7 @@
     }
   });
 
-  // ========== RENDERER (types Live; controller acks completion & saves Last Completed Draw) ==========
+  // ---------- Renderer (Live typing; controller acks completion; Draw Once can fast-forward mid-line) ----------
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
     const running   = !!s.running;
@@ -404,18 +480,14 @@
     if (animating) return;
     if (renderSeq && renderSeq === activeSeq) return;
 
-    // lock
     animating = true;
     activeSeq = renderSeq;
-
-    // reset Live panel (no "Random Assignments:" header anymore)
     outLive.textContent = "";
 
-    // Fast-forward immediately if requested for once-mode
+    // Fast-forward immediately at start (for once-mode)
     if (fastForward && mode === 'once'){
       const block = picks.map((p,i)=>formatLine(managers[i], p, TEAMS[p-1]||"??")).join('');
       outLive.textContent = block;
-      // controller writes completion + lastResultText
       if (localIsController){
         await update(ref(db,'state'), {
           running:false, fastForward:false,
@@ -424,15 +496,30 @@
           cyclesCompleted: (s.cyclesCompleted||0)+1
         });
       }
-      animating = false;
-      return;
+      animating = false; return;
     }
 
-    // Normal typing
+    // Normal typing, with mid-line fast-forward for once-mode
     for (let i=0;i<Math.min(picks.length, managers.length);i++){
       const idx = picks[i]-1;
       const line = formatLine(managers[i], picks[i], TEAMS[idx] || "??");
       for (let j=0;j<line.length;j++){
+        // mid-line fast-forward for once
+        const ffSnap = (await get(ref(db,'state'))).val()?.fastForward;
+        if (mode==='once' && ffSnap){
+          const block = picks.map((p,k)=>formatLine(managers[k], p, TEAMS[p-1]||"??")).join('');
+          outLive.textContent = block;
+          if (localIsController){
+            const cur = (await get(ref(db,'state'))).val()||{};
+            await update(ref(db,'state'), {
+              running:false, fastForward:false,
+              lastCompletedSeq: renderSeq,
+              lastResultText: outLive.textContent,
+              cyclesCompleted: (cur.cyclesCompleted||0)+1
+            });
+          }
+          animating = false; return;
+        }
         outLive.textContent += line[j];
         await sleep(spd);
       }
@@ -456,34 +543,45 @@
     animating = false;
   });
 
-  // ---------- Begin loop (deterministic via lastCompletedSeq handshake) ----------
+  // ---------- Begin loop (handshake) ----------
   async function runBeginLoop(){
-    if (localContinuous) return; // already running
+    if (localContinuous) return;
     localContinuous = true; beginBtn.classList.add('on');
     localFinalizeRequested = false;
 
     while (localContinuous){
-      const ok = await startOneCycleContinuous();
-      if (!ok) break;
-
-      // wait until this cycle has fully rendered and was acknowledged
-      await waitForSeqCompletion(ok.renderSeq);
+      const seqInfo = await startOneCycleContinuous();
+      if (!seqInfo) break;
+      await waitForSeqCompletion(seqInfo.renderSeq);
 
       if (localFinalizeRequested){
-        // one more cycle, then finish
-        const onceMore = await startOneCycleContinuous();
-        if (onceMore) await waitForSeqCompletion(onceMore.renderSeq);
-        localContinuous = false; beginBtn.classList.remove('on');
+        const finalInfo = await startOneCycleContinuous();
+        if (finalInfo) await waitForSeqCompletion(finalInfo.renderSeq);
+        localContinuous=false; beginBtn.classList.remove('on');
         await finishAndCooldown();
         break;
       }
-      // loop again
     }
   }
 
   async function startOneCycleContinuous(){
     if (TEAMS.length !== 265 || MANAGERS.length !== 12) return null;
-    const picks = pick12(TEAMS.length);
+
+    // Build allowed set from omitted
+    const omitTxt = (await get(ref(db,'state/omittedTeamsText'))).val()||'';
+    const list = parseOmitted(omitTxt);
+    const mismatches = validateOmittedNames(list);
+    // For Begin we assume validation already happened at Start; but still safe:
+    if (mismatches.length){
+      outLive.textContent = "Omitted list contains unknown team names:\n- " + mismatches.join('\n- ');
+      return null;
+    }
+    const {allowed} = allowedIndicesFromOmitted(list);
+    const picks = pickNFromAllowed(allowed, 12);
+    if (!picks){
+      outLive.textContent = "Not enough available teams to assign 12.\nReduce omitted teams.";
+      return null;
+    }
     const managers = shuffle(MANAGERS);
     const settings = (await get(ref(db,'settings'))).val() || {};
     const speedSnap = Number(settings.speedMs ?? globalSpeedMs);
@@ -519,7 +617,21 @@
       outLive.textContent = `There should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
       return false;
     }
-    const picks = pick12(TEAMS.length);
+    // Validate omitted BEFORE running
+    const omitTxt = (await get(ref(db,'state/omittedTeamsText'))).val()||'';
+    const list = parseOmitted(omitTxt);
+    const mismatches = validateOmittedNames(list);
+    if (mismatches.length){
+      alert("These omitted names do not match any team:\n- " + mismatches.join('\n- '));
+      return false;
+    }
+    const {allowed} = allowedIndicesFromOmitted(list);
+    const picks = pickNFromAllowed(allowed, 12);
+    if (!picks){
+      alert("Not enough available teams to assign 12.\nReduce omitted teams.");
+      return false;
+    }
+
     const managers = shuffle(MANAGERS);
     const settings = (await get(ref(db,'settings'))).val() || {};
     const speedSnap = Number(settings.speedMs ?? globalSpeedMs);
@@ -553,8 +665,8 @@
     }
   }
 
-  // ---------- buttons ----------
-  // Start → enter Begin mode (host only). Confirm only if finalized exists. Do NOT clear Last Completed Draw; clear only Live.
+  // ---------- Buttons ----------
+  // Start: enter Begin mode (host only). Validate omitted here.
   startBtn.addEventListener('click', async ()=>{
     if (startBtn.disabled) return;
     const st = (await get(ref(db,'state'))).val()||{};
@@ -562,18 +674,25 @@
       if (!confirm("This will clear your finalized results, are you sure you want to continue?")) return;
       await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null });
     }
-    outLive.textContent = ""; // clear Live pane for everyone who clicks Start (others clear on next render)
+    // validate omitted
+    const list = parseOmitted(omitText.value);
+    const mismatches = validateOmittedNames(list);
+    if (mismatches.length){
+      alert("These omitted names do not match any team:\n- " + mismatches.join('\n- '));
+      return;
+    }
     await update(ref(db,'state'), { controlMode:'begin' });
+    outLive.textContent = ""; // clear Live per your preference
   });
 
   // Begin (Executor) → deterministic loop
   beginBtn.addEventListener('click', async ()=>{
     if (beginBtn.disabled) return;
-    localIsController = true;  // this client drives the cycle handshake
+    localIsController = true;
     runBeginLoop();
   });
 
-  // Draw Once → start; if already running once -> fast-forward to finish immediately.
+  // Draw Once with validation; second click fast-forwards
   drawOnceBtn.addEventListener('click', async ()=>{
     const s = (await get(ref(db,'state'))).val()||{};
     const runningOnce = !!s.running && s.mode==='once';
@@ -583,12 +702,19 @@
         if (!confirm("This will clear your finalized results, are you sure you want to continue?")) return;
         await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null });
       }
-      localIsController = true; // controller for this one-off
+      // validate omitted
+      const list = parseOmitted((await get(ref(db,'state/omittedTeamsText'))).val()||omitText.value||'');
+      const mismatches = validateOmittedNames(list);
+      if (mismatches.length){
+        alert("These omitted names do not match any team:\n- " + mismatches.join('\n- '));
+        return;
+      }
+
+      localIsController = true;
       const ok = await writeDrawOnce();
-      // Disable Start/Begin during a one-off (UI listener also handles)
-      startBtn.disabled = true; beginBtn.disabled = true;
+      if (ok){ startBtn.disabled = true; beginBtn.disabled = true; }
     } else {
-      // already running once -> request fast-forward (all clients finish instantly)
+      // request fast-forward
       await update(ref(db,'state'), { fastForward:true });
     }
   });
@@ -615,7 +741,7 @@
     }
   });
 
-  // Clear (host-only). Disabled during Draw Once, during begin/hasBegun, and until cooldown ends.
+  // Clear (host-only). Confirmation only if finalized exists.
   clearBtn.addEventListener('click', async ()=>{
     if (clearBtn.disabled) return;
     const st = (await get(ref(db,'state'))).val()||{};
@@ -628,10 +754,10 @@
       lastResultText:'', finalizedAt:null, cooldownUntil:null, hasBegun:false
     });
     outLive.textContent = "";
-    // outPrev stays cleared by the state write above (lastResultText:'')
+    outPrev.textContent = "";
   });
 
-  // Copy / CSV use the Live panel
+  // Copy / CSV (Live pane)
   copyBtn.addEventListener('click', async ()=>{
     await navigator.clipboard.writeText(outLive.textContent);
     statusEl.textContent='Output copied'; setTimeout(()=>statusEl.textContent='',1500);
@@ -655,9 +781,13 @@
     if (e.key.toLowerCase()==='r'){ e.preventDefault(); if (!drawOnceBtn.disabled) drawOnceBtn.click(); }
   });
 
-  // Data guard messages (your wording)
-  if (TEAMS.length !== 265) { outLive.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`; }
-  if (MANAGERS.length !== 12){ outLive.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`; }
+  // Guards on initial data
+  if (TEAMS.length !== 265){
+    outLive.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`;
+  }
+  if (MANAGERS.length !== 12){
+    outLive.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
+  }
 </script>
 </body>
 </html>
