@@ -55,11 +55,6 @@
   .btn.on{outline:2px solid var(--ok);box-shadow:0 0 0 4px rgba(121,255,161,.12) inset}
   .btn.finalizing{outline:2px solid var(--warn);box-shadow:0 0 0 4px rgba(255,212,121,.12) inset}
 
-  /* Host-only speed controls */
-  #speedRow{display:none;margin-top:10px}
-  .row{display:flex;gap:12px}
-  .pill{background:#101736;border:1px solid #2a3252;padding:8px 10px;border-radius:10px}
-
   .countdown{font-weight:700;color:var(--warn)}
   .center{ text-align:center }
 </style>
@@ -77,7 +72,7 @@
       </div>
 
       <!-- Host-only global speed -->
-      <div id="speedRow" class="row">
+      <div id="speedRow" class="row" style="margin-top:10px; display:none">
         <div class="pill" style="flex:1">
           <div class="muted">Speed (ms/char)</div>
           <input id="speed" type="range" min="5" max="120" value="30" style="width:100%"/>
@@ -136,7 +131,6 @@
     </div>
     <div class="small center" id="status">Connecting…</div>
     <div class="small center" id="audience"></div>
-    <!--<div class="small center">Hotkeys: <b>Space</b> Begin/stop (Executor) • <b>R</b> Draw Once</div>-->
   </div>
 </div>
 
@@ -234,53 +228,63 @@
 
   // ---------- helpers ----------
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j]]=[a[j],a[i]][1]; } return a; } // swap trick
+  function shuffle(a){
+    a = a.slice();
+    for (let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]]; // ✅ correct swap
+    }
+    return a;
+  }
   function pad3(n){ return String(n).padStart(3,' '); }
   const formatLine = (m, num, team)=>`${m.padEnd(10)} -> ${pad3(num)} - ${team}\n`;
 
-  // pick N from allowed indices
-  function pickNFromAllowed(allowedIdx, n){
-    if (allowedIdx.length < n) return null;
-    const arr = shuffle(allowedIdx).slice(0, n).sort((a,b)=>a-b);
-    return arr;
-  }
+  // TEAMS lookup maps (exact and case-insensitive)
+  const teamIndexByExact = new Map(TEAMS.map((t,i)=>[t, i+1]));
+  const teamIndexByLower = new Map(TEAMS.map((t,i)=>[t.toLowerCase(), i+1]));
 
   // Parse omitted as semicolon-separated; trims spaces
-  function parseOmitted(text){
-    const raw = (text||'').split(';').map(s=>s.trim()).filter(Boolean);
-    return raw;
-  }
+  const parseOmitted = (text)=> (text||'').split(';').map(s=>s.trim()).filter(Boolean);
 
-  // map name to team index (exact match)
-  const teamIndexByName = new Map(TEAMS.map((t,i)=>[t, i+1]));
-
-  function validateOmittedNames(list){
-    const mismatches = [];
-    for (const name of list){
-      if (!teamIndexByName.has(name)) mismatches.push(name);
+  // Resolve omitted names to indices (case-insensitive), returning {indices:Set<number>, unknown:string[]}
+  function resolveOmitted(text){
+    const names = parseOmitted(text);
+    const indices = new Set();
+    const unknown = [];
+    for (const raw of names){
+      const exact = teamIndexByExact.get(raw);
+      if (exact){ indices.add(exact); continue; }
+      const lower = teamIndexByLower.get(raw.toLowerCase());
+      if (lower){ indices.add(lower); continue; }
+      unknown.push(raw);
     }
-    return mismatches;
+    return { indices, unknown };
   }
 
-  function allowedIndicesFromOmitted(list){
-    const omitSet = new Set(list.map(name=>teamIndexByName.get(name))); // numbers
-    const allowed = [];
+  // Build allowed indices given omitted indices
+  function allowedIndices(omitSet){
+    const out = [];
     for (let i=1;i<=TEAMS.length;i++){
-      if (!omitSet.has(i)) allowed.push(i);
+      if (!omitSet.has(i)) out.push(i);
     }
-    return {allowed, omitSet};
+    return out;
   }
 
-  // update teams list strike-through styles
+  // Strike-through in Teams list
   function renderTeamStrikes(omitSet){
     document.querySelectorAll('#teamList li').forEach(li=>{
       const num = Number(li.getAttribute('data-num'));
-      if (omitSet.has(num)) { li.classList.add('omitted'); }
-      else { li.classList.remove('omitted'); }
+      li.classList.toggle('omitted', omitSet.has(num));
     });
   }
 
-  // Render static lists
+  // Randomly pick N from allowed
+  function pickNFromAllowed(allowedIdx, n){
+    if (allowedIdx.length < n) return null;
+    return shuffle(allowedIdx).slice(0,n).sort((a,b)=>a-b);
+  }
+
+  // Render fixed lists
   managersList.innerHTML = MANAGERS.map(m=>`<li>${m}</li>`).join('');
   teamList.innerHTML = TEAMS.map((t,i)=> `<li data-num="${i+1}">${t}</li>`).join('');
 
@@ -348,7 +352,7 @@
     drawOnceBtn.disabled = false;
     clearBtn.style.display = isHost ? '' : 'none';
     speedRow.style.display = isHost ? '' : 'none';
-    omitText.disabled = !isHost; // only host can edit
+    omitText.disabled = !isHost;
   }
 
   // Roles & settings listeners
@@ -383,9 +387,8 @@
   onValue(ref(db,'state/omittedTeamsText'), (snap)=>{
     const txt = snap.val()||'';
     if (omitText.value !== txt) omitText.value = txt;
-    const list = parseOmitted(txt);
-    const {omitSet} = allowedIndicesFromOmitted(list);
-    renderTeamStrikes(omitSet);
+    const { indices } = resolveOmitted(txt);
+    renderTeamStrikes(indices);
   });
 
   // Users list
@@ -408,31 +411,13 @@
     const lastText = s.lastResultText || '';
     if (outPrev.textContent !== lastText){ outPrev.textContent = lastText; }
 
-    // Cooldown & disable regions
     if (now < until){
-      if (!cooldownTimer){
-        const tick = ()=>{
-          const n = Date.now();
-          const secs = Math.max(0, Math.ceil((until - n)/1000));
-          cooldownEl.textContent = ` — Finalized. Controls unlock in ${secs}s`;
-          if (n >= until){
-            cooldownEl.textContent='';
-            clearInterval(cooldownTimer);
-            cooldownTimer = null;
-            wireUIForRole();
-          }
-        };
-        cooldownTimer = setInterval(tick, 500);
-        tick();
-      }
-      startBtn.disabled = beginBtn.disabled = drawOnceBtn.disabled = finalizeBtn.disabled = clearBtn.disabled = true;
-      omitText.disabled = true; // lock omitted during cooldown
+      lockAllDuringCooldown();
     } else {
       cooldownEl.textContent='';
       const mode = s.controlMode || 'drawonce';
       const running = !!s.running;
       const runningOnce = running && s.mode === 'once';
-      const controllerUid = s.controllerUid;
 
       // highlights
       document.querySelectorAll('#teamList li.hit').forEach(li=>li.classList.remove('hit'));
@@ -450,19 +435,40 @@
       finalizeBtn.disabled = !(hasBegun && isFinalizer) || runningOnce;
       // Clear: disabled after Start (hasBegun true) and during Draw Once
       clearBtn.disabled = !isHost || runningOnce || mode === 'begin' || hasBegun;
-
       // Omitted editor lock: editable only for host & only when Start is available and not running
       omitText.disabled = !isHost || runningOnce || mode === 'begin' || hasBegun;
 
-      // controller tracking
-      localIsController = (controllerUid === myUID);
-
+      // Visual reset when stopped
       if (!s.running){
         localContinuous=false; localFinalizeRequested=false;
         beginBtn.classList.remove('on'); finalizeBtn.classList.remove('finalizing');
       }
     }
   });
+
+  function lockAllDuringCooldown(){
+    if (!cooldownTimer){
+      const tick = ()=>{
+        const s = (window._cool_s||0), n = Date.now();
+        const secs = Math.max(0, Math.ceil(((window._cool_until||0) - n)/1000));
+        cooldownEl.textContent = ` — Finalized. Controls unlock in ${secs}s`;
+        if (n >= (window._cool_until||0)){
+          cooldownEl.textContent='';
+          clearInterval(cooldownTimer);
+          cooldownTimer = null;
+          wireUIForRole();
+        }
+      };
+      get(ref(db,'state')).then(s=>{
+        const v = s.val()||{};
+        window._cool_until = v.cooldownUntil||0;
+        window._cool_s = Date.now();
+        cooldownTimer = setInterval(tick, 500); tick();
+      });
+    }
+    startBtn.disabled = beginBtn.disabled = drawOnceBtn.disabled = finalizeBtn.disabled = clearBtn.disabled = true;
+    omitText.disabled = true;
+  }
 
   // ---------- Renderer (Live typing; controller acks completion; Draw Once can fast-forward mid-line) ----------
   onValue(ref(db,'state'), async (snap)=>{
@@ -474,7 +480,8 @@
     const mode      = s.mode || 'once';
     const spd       = typeof s.speedMsSnapshot === 'number' ? s.speedMsSnapshot : (await get(ref(db,'settings'))).val()?.speedMs ?? 30;
     const pause     = typeof s.linePauseMsSnapshot === 'number' ? s.linePauseMsSnapshot : (await get(ref(db,'settings'))).val()?.linePauseMs ?? 250;
-    localIsController = (s.controllerUid === myUID);
+    const controllerUid = s.controllerUid;
+    localIsController = (controllerUid === myUID);
 
     if (!running || !picks.length || !managers.length) return;
     if (animating) return;
@@ -551,7 +558,7 @@
 
     while (localContinuous){
       const seqInfo = await startOneCycleContinuous();
-      if (!seqInfo) break;
+      if (!seqInfo) { localContinuous=false; beginBtn.classList.remove('on'); return; }
       await waitForSeqCompletion(seqInfo.renderSeq);
 
       if (localFinalizeRequested){
@@ -565,23 +572,26 @@
   }
 
   async function startOneCycleContinuous(){
-    if (TEAMS.length !== 265 || MANAGERS.length !== 12) return null;
-
-    // Build allowed set from omitted
-    const omitTxt = (await get(ref(db,'state/omittedTeamsText'))).val()||'';
-    const list = parseOmitted(omitTxt);
-    const mismatches = validateOmittedNames(list);
-    // For Begin we assume validation already happened at Start; but still safe:
-    if (mismatches.length){
-      outLive.textContent = "Omitted list contains unknown team names:\n- " + mismatches.join('\n- ');
+    if (TEAMS.length !== 265 || MANAGERS.length !== 12) {
+      statusEl.textContent = `Guard failed: TEAMS=${TEAMS.length}, MANAGERS=${MANAGERS.length}`;
       return null;
     }
-    const {allowed} = allowedIndicesFromOmitted(list);
+
+    // Resolve omitted (case-insensitive)
+    const omitTxt = (await get(ref(db,'state/omittedTeamsText'))).val()||'';
+    const { indices: omitSet, unknown } = resolveOmitted(omitTxt);
+    if (unknown.length){
+      statusEl.textContent = `Unknown omitted names: ${unknown.join(', ')}`;
+      return null;
+    }
+
+    const allowed = allowedIndices(omitSet);
     const picks = pickNFromAllowed(allowed, 12);
     if (!picks){
-      outLive.textContent = "Not enough available teams to assign 12.\nReduce omitted teams.";
+      statusEl.textContent = "Not enough available teams to assign 12. Reduce omitted teams.";
       return null;
     }
+
     const managers = shuffle(MANAGERS);
     const settings = (await get(ref(db,'settings'))).val() || {};
     const speedSnap = Number(settings.speedMs ?? globalSpeedMs);
@@ -607,25 +617,23 @@
   // ---------- Draw Once ----------
   async function writeDrawOnce(){
     if (TEAMS.length !== 265){
-      outLive.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`;
-      if (MANAGERS.length !== 12){
-        outLive.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
-      }
+      statusEl.textContent = `There should be exactly 265 teams; currently ${TEAMS.length}.`;
       return false;
     }
     if (MANAGERS.length !== 12){
-      outLive.textContent = `There should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
+      statusEl.textContent = `There should be exactly 12 managers; currently ${MANAGERS.length}.`;
       return false;
     }
+
     // Validate omitted BEFORE running
-    const omitTxt = (await get(ref(db,'state/omittedTeamsText'))).val()||'';
-    const list = parseOmitted(omitTxt);
-    const mismatches = validateOmittedNames(list);
-    if (mismatches.length){
-      alert("These omitted names do not match any team:\n- " + mismatches.join('\n- '));
+    const omitTxt = (await get(ref(db,'state/omittedTeamsText'))).val()||omitText.value||'';
+    const { indices: omitSet, unknown } = resolveOmitted(omitTxt);
+    if (unknown.length){
+      alert("These omitted names do not match any team:\n- " + unknown.join('\n- '));
       return false;
     }
-    const {allowed} = allowedIndicesFromOmitted(list);
+
+    const allowed = allowedIndices(omitSet);
     const picks = pickNFromAllowed(allowed, 12);
     if (!picks){
       alert("Not enough available teams to assign 12.\nReduce omitted teams.");
@@ -666,7 +674,7 @@
   }
 
   // ---------- Buttons ----------
-  // Start: enter Begin mode (host only). Validate omitted here.
+  // Start: enter Begin mode (host only). Validate omitted here. Do not clear Last Completed Draw; clear only Live.
   startBtn.addEventListener('click', async ()=>{
     if (startBtn.disabled) return;
     const st = (await get(ref(db,'state'))).val()||{};
@@ -674,21 +682,21 @@
       if (!confirm("This will clear your finalized results, are you sure you want to continue?")) return;
       await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null });
     }
-    // validate omitted
-    const list = parseOmitted(omitText.value);
-    const mismatches = validateOmittedNames(list);
-    if (mismatches.length){
-      alert("These omitted names do not match any team:\n- " + mismatches.join('\n- '));
+    const { unknown } = resolveOmitted(omitText.value);
+    if (unknown.length){
+      statusEl.textContent = `Unknown omitted names: ${unknown.join(', ')}`;
       return;
     }
     await update(ref(db,'state'), { controlMode:'begin' });
-    outLive.textContent = ""; // clear Live per your preference
+    outLive.textContent = ""; // clear Live
+    statusEl.textContent = "Begin mode armed. Executor can press Begin.";
   });
 
   // Begin (Executor) → deterministic loop
   beginBtn.addEventListener('click', async ()=>{
     if (beginBtn.disabled) return;
     localIsController = true;
+    statusEl.textContent = "Continuous draw started.";
     runBeginLoop();
   });
 
@@ -702,20 +710,18 @@
         if (!confirm("This will clear your finalized results, are you sure you want to continue?")) return;
         await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null });
       }
-      // validate omitted
-      const list = parseOmitted((await get(ref(db,'state/omittedTeamsText'))).val()||omitText.value||'');
-      const mismatches = validateOmittedNames(list);
-      if (mismatches.length){
-        alert("These omitted names do not match any team:\n- " + mismatches.join('\n- '));
+      const { unknown } = resolveOmitted((await get(ref(db,'state/omittedTeamsText'))).val()||omitText.value||'');
+      if (unknown.length){
+        alert("These omitted names do not match any team:\n- " + unknown.join('\n- '));
         return;
       }
 
       localIsController = true;
       const ok = await writeDrawOnce();
-      if (ok){ startBtn.disabled = true; beginBtn.disabled = true; }
+      if (ok){ startBtn.disabled = true; beginBtn.disabled = true; statusEl.textContent = "Drawing once…"; }
     } else {
-      // request fast-forward
       await update(ref(db,'state'), { fastForward:true });
+      statusEl.textContent = "Fast-forward requested.";
     }
   });
 
@@ -727,6 +733,7 @@
     if (s.mode==='continuous' && s.running){
       localFinalizeRequested = true;
       await update(ref(db,'state'), { finalizeRequested:true });
+      statusEl.textContent = "Finalize requested (will finish current + one more).";
     } else {
       if (s.running && s.mode==='once'){
         await update(ref(db,'state'), { fastForward:true });
@@ -738,6 +745,7 @@
       }
       await finishAndCooldown();
       finalizeBtn.classList.remove('finalizing');
+      statusEl.textContent = "Finalized. Cooldown started.";
     }
   });
 
@@ -755,6 +763,7 @@
     });
     outLive.textContent = "";
     outPrev.textContent = "";
+    statusEl.textContent = "Cleared.";
   });
 
   // Copy / CSV (Live pane)
@@ -775,19 +784,12 @@
     const a=document.createElement('a'); a.href=url; a.download='assignments.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   });
 
-  /*
-  // Hotkeys
-  document.addEventListener('keydown', (e)=>{
-    if (e.code==='Space'){ e.preventDefault(); if (!beginBtn.disabled) beginBtn.click(); }
-    if (e.key.toLowerCase()==='r'){ e.preventDefault(); if (!drawOnceBtn.disabled) drawOnceBtn.click(); }
-  });*/
-
   // Guards on initial data
   if (TEAMS.length !== 265){
-    outLive.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`;
+    statusEl.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`;
   }
   if (MANAGERS.length !== 12){
-    outLive.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
+    statusEl.textContent += `  There should be exactly 12 managers. There are currently ${MANAGERS.length}.`;
   }
 </script>
 </body>
