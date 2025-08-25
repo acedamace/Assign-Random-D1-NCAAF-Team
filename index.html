@@ -29,9 +29,11 @@
   ol.teamlist li{padding:2px 6px;border-radius:8px;white-space:nowrap; list-style: decimal}
   ol.teamlist li.hit{background:rgba(122,162,255,.18);outline:1px solid rgba(122,162,255,.35);font-weight:600}
 
-  /* Output: height auto-adjusts to content (set via JS) */
+  /* Output area split into two equal columns inside its card */
   .wide{grid-column: 1 / span 2;}
-  .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;overflow:auto;white-space:pre}
+  .outGrid{display:grid;grid-template-columns:1fr 1fr; gap:12px}
+  .outBox{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;overflow:auto;white-space:pre}
+  .outTitle{margin-bottom:6px;color:var(--muted);font-size:13px}
 
   /* Footer controls */
   .controlsFooter{margin-top:8px;background:#0f1530;border:1px solid #2a3252;border-radius:12px;padding:10px}
@@ -85,10 +87,19 @@
       </div>
     </div>
 
-    <!-- Output -->
+    <!-- Output (two panes) -->
     <div class="card wide">
       <div class="muted">Output <span id="cooldown" class="countdown"></span></div>
-      <div id="out" class="out"></div>
+      <div class="outGrid">
+        <div>
+          <div class="outTitle">Last Draw (completed)</div>
+          <div id="outPrev" class="outBox"></div>
+        </div>
+        <div>
+          <div class="outTitle">Live</div>
+          <div id="outLive" class="outBox"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -182,7 +193,8 @@
   const db   = getDatabase(app);
 
   // ---------- UI refs ----------
-  const out = document.getElementById('out');
+  const outPrev = document.getElementById('outPrev');   // Last Draw (completed)
+  const outLive = document.getElementById('outLive');   // Live typewriter
   const teamList = document.getElementById('teamList');
   const managersList = document.getElementById('managersList');
   const statusEl = document.getElementById('status');
@@ -205,15 +217,12 @@
   function pick12(n){ const idx=[...Array(n).keys()].map(i=>i+1); return shuffle(idx).slice(0,12).sort((a,b)=>a-b); }
   const pad3 = (n)=>String(n).padStart(3,' ');
   const formatLine = (m, num, team)=>`${m.padEnd(10)} -> ${pad3(num)} - ${team}\n`; // single trailing \n
-
-  function adjustOutputHeight(){
-    // Fit height to content (with caps)
-    const style = getComputedStyle(out);
+  function fitBox(el){
+    const style = getComputedStyle(el);
     const lineH = parseFloat(style.lineHeight) || 18;
     const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
-    const lines = Math.max(1, out.textContent.split('\n').length);
-    const px = Math.min(Math.max(lines * lineH + padding, 140), 560); // min 140px, max 560px
-    out.style.height = px + 'px';
+    const lines = Math.max(1, el.textContent.split('\n').length);
+    el.style.height = Math.min(Math.max(lines*lineH + padding, 120), 560) + 'px';
   }
 
   // Render static lists
@@ -224,16 +233,15 @@
   let myUID=null, myName="Viewer";
   let isHost=false, isExecutor=false, isFinalizer=false;
   let globalSpeedMs=30, globalLinePauseMs=250;
-  let localIsController=false;
+  let localIsController=false; // true if this client started the current draw (controllerUid === myUID)
   let localContinuous=false;
   let localFinalizeRequested=false;
-  let fastForward = false; // fast-finish Draw Once
-  let hasBegun = false;    // enables Finalize only after Begin
+  let fastForward = false; // fast finish for Draw Once
+  let hasBegun = false;    // Begin session is active
 
   // renderer guards
   let animating = false;
   let activeSeq = null;
-  let latestRenderSeq = null;
 
   // cooldown timer singleton
   let cooldownTimer = null;
@@ -288,7 +296,7 @@
     speedRow.style.display = isHost ? '' : 'none';
   }
 
-  // Live roles listener
+  // Live roles listener (keeps host-only UI visible)
   onValue(ref(db,'roles'), (snap)=>{
     const val = snap.val()||{};
     isHost = val.hostUid === myUID;
@@ -318,16 +326,19 @@
     audEl.textContent = 'Connected: ' + (list.length ? list.join(' | ') : '—');
   });
 
-  // ========== UI LISTENER (cooldown, buttons, highlights) ==========
+  // ========== UI LISTENER (cooldown, buttons, highlights, Last Draw mirror) ==========
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
     const now = Date.now();
     const until = s.cooldownUntil||0;
 
-    // sync flags for UI & renderer
+    // sync flags
     fastForward = !!s.fastForward;
     hasBegun = !!s.hasBegun;
-    latestRenderSeq = s.renderSeq ?? latestRenderSeq;
+
+    // mirror Last Draw text
+    const lastText = s.lastResultText || '';
+    if (outPrev.textContent !== lastText){ outPrev.textContent = lastText; fitBox(outPrev); }
 
     // Cooldown
     if (now < until){
@@ -352,39 +363,36 @@
       const mode = s.controlMode || 'drawonce';
       const running = !!s.running;
       const runningOnce = running && s.mode === 'once';
-      const finalized = !!s.finalizedAt;
+
+      // controller & highlights
+      localIsController = (s.controllerUid === myUID);
+      document.querySelectorAll('#teamList li.hit').forEach(li=>li.classList.remove('hit'));
+      (Array.isArray(s.picks)? s.picks:[]).forEach(n=>{
+        const li = document.querySelector(`#teamList li[data-num="${n}"]`);
+        if (li) li.classList.add('hit');
+      });
 
       // Base gating
-      startBtn.disabled   = !isHost || runningOnce || running;                 // disabled during any running draw
-      beginBtn.disabled   = !(mode === 'begin' && isExecutor) || runningOnce || running; // no begin during running
-      drawOnceBtn.disabled= (mode === 'begin') && !runningOnce ? true : false; // disabled in begin-mode unless we're already in a once-run
+      startBtn.disabled   = !isHost || runningOnce || running;
+      beginBtn.disabled   = !(mode === 'begin' && isExecutor) || runningOnce || running;
+      drawOnceBtn.disabled= (mode === 'begin') && !runningOnce ? true : false;
       if (runningOnce) drawOnceBtn.disabled = false; // allow fast-forward
 
       // Finalize only after Begin
       finalizeBtn.disabled = !(hasBegun && isFinalizer) || runningOnce;
 
-      // Clear (host-only): disabled after Start (i.e., when in begin-mode or hasBegun), disabled during Draw Once, re-enabled after cooldown
+      // Clear (host-only): disabled after Start (hasBegun true), and during Draw Once
       clearBtn.disabled = !isHost || runningOnce || mode === 'begin' || hasBegun;
 
-      // Confirm prompts (only if finalizedAt exists) are handled in the button handlers
-    }
-
-    // controller + team highlights
-    localIsController = (s.controllerUid === myUID);
-    document.querySelectorAll('#teamList li.hit').forEach(li=>li.classList.remove('hit'));
-    (Array.isArray(s.picks)? s.picks:[]).forEach(n=>{
-      const li = document.querySelector(`#teamList li[data-num="${n}"]`);
-      if (li) li.classList.add('hit');
-    });
-
-    // Visual reset when stopped
-    if (!s.running){
-      localContinuous=false; localFinalizeRequested=false;
-      beginBtn.classList.remove('on'); finalizeBtn.classList.remove('finalizing');
+      // Visual reset when stopped
+      if (!s.running){
+        localContinuous=false; localFinalizeRequested=false;
+        beginBtn.classList.remove('on'); finalizeBtn.classList.remove('finalizing');
+      }
     }
   });
 
-  // ========== RENDERER (types output once per draw; checks new cycle only between lines) ==========
+  // ========== RENDERER (types Live; controller acks completion & saves Last Draw) ==========
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
     const running   = !!s.running;
@@ -403,114 +411,136 @@
     animating = true;
     activeSeq = renderSeq;
 
-    out.textContent = "Random Assignments:\n";
-    adjustOutputHeight();
+    // reset Live panel
+    outLive.textContent = "Random Assignments:\n";
+    fitBox(outLive);
 
     // Fast-forward immediately if requested for once-mode
     if (fastForward && mode === 'once'){
       const block = picks.map((p,i)=>formatLine(managers[i], p, TEAMS[p-1]||"??")).join('');
-      out.textContent += block;
-      adjustOutputHeight();
+      outLive.textContent += block; fitBox(outLive);
+      // controller writes completion + lastResultText
       if (localIsController){
-        const prev = (await get(ref(db,'state'))).val()||{};
-        const cyc = (prev.cyclesCompleted||0)+1;
-        await update(ref(db,'state'), { running:false, fastForward:false, cyclesCompleted:cyc });
+        await update(ref(db,'state'), {
+          running:false, fastForward:false,
+          lastCompletedSeq: renderSeq,
+          lastResultText: outLive.textContent,
+          cyclesCompleted: (s.cyclesCompleted||0)+1
+        });
       }
       animating = false;
       return;
     }
 
+    // Normal typing
     for (let i=0;i<Math.min(picks.length, managers.length);i++){
       const idx = picks[i]-1;
       const line = formatLine(managers[i], picks[i], TEAMS[idx] || "??");
       for (let j=0;j<line.length;j++){
-        out.textContent += line[j];
-        // no per-char renderSeq abort for continuous; avoids mid-line cutoffs
-        if (mode === 'once' && fastForward){
-          // if fast-forward toggled mid-line for once, dump remainder
-          const block = picks.map((p,k)=>formatLine(managers[k], p, TEAMS[p-1]||"??")).join('');
-          out.textContent = "Random Assignments:\n" + block;
-          adjustOutputHeight();
-          if (localIsController){
-            const cur = (await get(ref(db,'state'))).val()||{};
-            const cyc = (cur.cyclesCompleted||0)+1;
-            await update(ref(db,'state'), { running:false, fastForward:false, cyclesCompleted:cyc });
-          }
-          animating = false;
-          return;
-        }
+        outLive.textContent += line[j];
         await sleep(spd);
       }
-      adjustOutputHeight();
-
-      // between lines: if a new sequence has started (continuous), stop gracefully
-      if (mode === 'continuous' && latestRenderSeq && latestRenderSeq !== activeSeq){
-        animating = false;
-        return;
-      }
+      fitBox(outLive);
       await sleep(pause);
+    }
+
+    // Finished: controller acks & stores Last Draw
+    if (localIsController){
+      await update(ref(db,'state'), {
+        lastCompletedSeq: renderSeq,
+        lastResultText: outLive.textContent
+      });
+      if (mode === 'once'){
+        await update(ref(db,'state'), {
+          running:false,
+          cyclesCompleted: (s.cyclesCompleted||0)+1
+        });
+      }
     }
 
     animating = false;
   });
 
-  // ---------- draw helpers ----------
-  function computeDrawDuration(picks, managers, spd, pause){
-    let chars = 0;
-    for (let i=0;i<Math.min(picks.length, managers.length);i++){
-      chars += formatLine(managers[i], picks[i], TEAMS[picks[i]-1]||"??").length;
+  // ---------- Begin loop (deterministic via lastCompletedSeq handshake) ----------
+  async function runBeginLoop(){
+    if (localContinuous) return; // already running
+    localContinuous = true; beginBtn.classList.add('on');
+    localFinalizeRequested = false;
+
+    while (localContinuous){
+      const ok = await startOneCycleContinuous();
+      if (!ok) break;
+
+      // wait for completion ack
+      await waitForSeqCompletion(ok.renderSeq);
+
+      if (localFinalizeRequested){
+        // one more cycle, then finish
+        const onceMore = await startOneCycleContinuous();
+        if (onceMore) await waitForSeqCompletion(onceMore.renderSeq);
+        localContinuous = false; beginBtn.classList.remove('on');
+        await finishAndCooldown();
+        break;
+      }
+      // otherwise loop again
     }
-    return chars*spd + managers.length*pause + 200;
   }
 
-  async function writeDrawOnce(controller){
-    if (TEAMS.length !== 265){
-      out.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`;
-      if (MANAGERS.length !== 12){
-        out.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
-      }
-      adjustOutputHeight();
-      return 0;
-    }
-    if (MANAGERS.length !== 12){
-      out.textContent = `There should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
-      adjustOutputHeight();
-      return 0;
-    }
+  async function startOneCycleContinuous(){
+    if (TEAMS.length !== 265 || MANAGERS.length !== 12) return null;
     const picks = pick12(TEAMS.length);
     const managers = shuffle(MANAGERS);
     const speedSnap = globalSpeedMs;
     const pauseSnap = globalLinePauseMs;
-    const duration = computeDrawDuration(picks, managers, speedSnap, pauseSnap);
     const renderSeq = Date.now();
     await update(ref(db,'state'), {
-      running:true, mode:'once', controllerUid:controller,
+      running:true, mode:'continuous', controlMode:'begin',
+      controllerUid: myUID, hasBegun:true,
       picks, managers, renderSeq, fastForward:false,
       speedMsSnapshot: speedSnap, linePauseMsSnapshot: pauseSnap
     });
-    return duration;
+    return { renderSeq };
   }
 
-  async function writeBeginCycle(controller){
-    if (TEAMS.length !== 265 || MANAGERS.length !== 12) return 0;
+  async function waitForSeqCompletion(seq){
+    while (true){
+      const s = (await get(ref(db,'state'))).val()||{};
+      if (s.lastCompletedSeq === seq) return;
+      await sleep(120);
+    }
+  }
+
+  // ---------- Draw Once ----------
+  async function writeDrawOnce(){
+    if (TEAMS.length !== 265){
+      outLive.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`;
+      if (MANAGERS.length !== 12){
+        outLive.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
+      }
+      fitBox(outLive);
+      return false;
+    }
+    if (MANAGERS.length !== 12){
+      outLive.textContent = `There should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`;
+      fitBox(outLive);
+      return false;
+    }
     const picks = pick12(TEAMS.length);
     const managers = shuffle(MANAGERS);
     const speedSnap = globalSpeedMs;
     const pauseSnap = globalLinePauseMs;
-    const duration = computeDrawDuration(picks, managers, speedSnap, pauseSnap);
     const renderSeq = Date.now();
     await update(ref(db,'state'), {
-      running:true, mode:'continuous', controllerUid:controller,
+      running:true, mode:'once', controlMode:'drawonce',
+      controllerUid: myUID,
       picks, managers, renderSeq, fastForward:false,
-      speedMsSnapshot: speedSnap, linePauseMsSnapshot: pauseSnap,
-      hasBegun: true
+      speedMsSnapshot: speedSnap, linePauseMsSnapshot: pauseSnap
     });
-    return duration;
+    return true;
   }
 
   async function finishAndCooldown(){
     const now = Date.now();
-    // return roles to host for executor/finalizer
     const r = await get(ref(db,'roles')); const val = r.exists()? r.val():{};
     const hostUid = val.hostUid || null;
 
@@ -529,44 +559,27 @@
   }
 
   // ---------- buttons ----------
-  // Start → controlMode 'begin' (host only). Confirm only if finalized exists.
+  // Start → enter Begin mode (host only). Confirm only if finalized exists.
   startBtn.addEventListener('click', async ()=>{
     if (startBtn.disabled) return;
     const st = (await get(ref(db,'state'))).val()||{};
     if (st.finalizedAt){
       if (!confirm("This will clear your finalized results, are you sure you want to continue?")) return;
-      await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null });
+      await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null, lastResultText: '' });
+      outPrev.textContent = ''; fitBox(outPrev);
     }
     await update(ref(db,'state'), { controlMode:'begin' });
   });
 
-  // Begin → continuous loop (Executor only)
+  // Begin (Executor) → deterministic loop
   beginBtn.addEventListener('click', async ()=>{
     if (beginBtn.disabled) return;
-    if (localContinuous) return;
-
-    beginBtn.classList.add('on');
-    localContinuous = true;
-    localFinalizeRequested = false;
-
-    const loop = async ()=>{
-      const dur = await writeBeginCycle(myUID);
-      if (!dur){ localContinuous=false; beginBtn.classList.remove('on'); return; }
-      await sleep(dur);
-      if (localFinalizeRequested){
-        const dur2 = await writeBeginCycle(myUID);
-        await sleep(dur2);
-        localContinuous=false; beginBtn.classList.remove('on');
-        await finishAndCooldown();
-        return;
-      }
-      if (localContinuous) loop();
-    };
-    loop();
+    // This client becomes controller for cycles
+    localIsController = true;
+    runBeginLoop();
   });
 
   // Draw Once → start; if already running once -> fast-forward to finish immediately.
-  // Confirm only if finalized exists AND we're about to start a new draw.
   drawOnceBtn.addEventListener('click', async ()=>{
     const s = (await get(ref(db,'state'))).val()||{};
     const runningOnce = !!s.running && s.mode==='once';
@@ -574,28 +587,21 @@
     if (!runningOnce){
       if (s.finalizedAt){
         if (!confirm("This will clear your finalized results, are you sure you want to continue?")) return;
-        await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null });
+        await update(ref(db,'state'), { finalizedAt: null, cooldownUntil: null, lastResultText: '' });
+        outPrev.textContent = ''; fitBox(outPrev);
       }
-      const dur = await writeDrawOnce(myUID);
-      if (!dur) return;
-      // Disable Start/Begin during a one-off
-      startBtn.disabled = true;
-      beginBtn.disabled = true;
-
-      await sleep(dur);
-      // If it wasn’t fast-forwarded, close it cleanly
-      const finish = (await get(ref(db,'state'))).val()||{};
-      if (finish.running && !finish.fastForward && finish.mode==='once'){
-        const cyc = (finish.cyclesCompleted||0)+1;
-        await update(ref(db,'state'), { running:false, cyclesCompleted:cyc });
-      }
+      // become controller for this one-off
+      localIsController = true;
+      const ok = await writeDrawOnce();
+      // Start/Begin disabled while once is running — UI listener already handles, but guard here too
+      startBtn.disabled = true; beginBtn.disabled = true;
     } else {
-      // already running once -> request fast-forward (all clients will finish instantly)
+      // already running once -> request fast-forward (all clients finish instantly)
       await update(ref(db,'state'), { fastForward:true });
     }
   });
 
-  // Finalize
+  // Finalize (Finalizer)
   finalizeBtn.addEventListener('click', async ()=>{
     if (finalizeBtn.disabled) return;
     finalizeBtn.classList.add('finalizing');
@@ -605,9 +611,8 @@
       await update(ref(db,'state'), { finalizeRequested:true });
     } else {
       if (s.running && s.mode==='once'){
-        // If a one-off is still typing and someone pressed Finalize, just fast-forward it first.
+        // If a one-off is still typing and Finalize is pressed, just fast-forward it first.
         await update(ref(db,'state'), { fastForward:true });
-        // Wait until running flips false
         while(true){
           const cur = (await get(ref(db,'state'))).val()||{};
           if (!cur.running) break;
@@ -628,20 +633,20 @@
     }
     await update(ref(db,'state'), {
       picks:null, managers:null, running:false, mode:null, controlMode:'drawonce',
-      fastForward:false, cyclesCompleted:0, renderSeq:null, finalizedAt:null,
-      cooldownUntil:null, hasBegun:false
+      fastForward:false, cyclesCompleted:0, renderSeq:null, lastCompletedSeq:null,
+      lastResultText:'', finalizedAt:null, cooldownUntil:null, hasBegun:false
     });
-    out.textContent = "";
-    adjustOutputHeight();
+    outLive.textContent = ""; fitBox(outLive);
+    outPrev.textContent = ""; fitBox(outPrev);
   });
 
-  // Copy / CSV
+  // Copy / CSV use the Live panel
   copyBtn.addEventListener('click', async ()=>{
-    await navigator.clipboard.writeText(out.textContent);
+    await navigator.clipboard.writeText(outLive.textContent);
     statusEl.textContent='Output copied'; setTimeout(()=>statusEl.textContent='',1500);
   });
   csvBtn.addEventListener('click', ()=>{
-    const lines = out.textContent.trim().split('\n').slice(1).filter(x=>x.includes('->'));
+    const lines = outLive.textContent.trim().split('\n').slice(1).filter(x=>x.includes('->'));
     const rows = lines.map(line=>{
       const [left,right] = line.split('->').map(s=>s.trim());
       const [num, ...teamParts] = right.split(' - ');
@@ -659,10 +664,11 @@
     if (e.key.toLowerCase()==='r'){ e.preventDefault(); if (!drawOnceBtn.disabled) drawOnceBtn.click(); }
   });
 
-  // Data guard messages (your requested wording)
-  if (TEAMS.length !== 265) { out.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`; }
-  if (MANAGERS.length !== 12){ out.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`; }
-  adjustOutputHeight();
+  // Data guard messages (your wording)
+  if (TEAMS.length !== 265) { outLive.textContent = `There should be exactly 265 NCAAF D1 teams. There are currently ${TEAMS.length} teams in the list.`; }
+  if (MANAGERS.length !== 12){ outLive.textContent += `\nThere should be exactly 12 managers. There are currently ${MANAGERS.length} managers in the list.`; }
+  fitBox(outLive);
+  fitBox(outPrev);
 </script>
 </body>
 </html>
