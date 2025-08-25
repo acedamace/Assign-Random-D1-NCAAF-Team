@@ -28,8 +28,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Random Team Assignments <span class="badge">12 of 265</span></h1>
-  <p>Teams & players are <strong>fixed</strong> in code (read-only). Controllers (UIDs in <code>/admins</code>) can Start/Stop/Re-Roll; everyone else is a synced viewer.</p>
+  <h1>Random Team Assignments <span class="badge">12 of 265 D1 Teams will be randomly selected.</span></h1>
+  /* <p>Teams & managers are <strong>fixed</strong> in code (read-only). Controllers (UIDs in <code>/admins</code>) can Start/Stop/Re-Roll; everyone else is a synced viewer.</p> */
 
   <div class="grid">
     <div class="card">
@@ -62,11 +62,11 @@
 
       <div class="row" style="align-items:flex-start">
         <div style="flex:1">
-          <div class="muted">Players (fixed)</div>
-          <ul id="playersList"></ul>
+          <div class="muted">Managers</div>
+          <ul id="managersList"></ul>
         </div>
         <div style="flex:1">
-          <div class="muted">Teams loaded</div>
+          //<div class="muted">Teams loaded</div>
           <div class="small" id="teamsCount"></div>
         </div>
       </div>
@@ -82,67 +82,61 @@
 
 <script type="module">
   /* ======== READ-ONLY DATA (your lists) ======== */
-  /*const TEAMS = [
-    "Abilene Christian","Air Force","Akron","Alabama","Alabama A&M","Alabama State",
-    "Albany","Alcorn State","Appalachian State","Arizona","Arizona State","Arkansas",
-    "Arkansas State","Arkansas-Pine Bluff","Army","Auburn","Austin Peay","Ball State",
-    "Baylor","Bethune-Cookman","Boise State","Boston College","Bowling Green","Brown",
-    "Bryant","Bucknell","Buffalo","Butler","BYU","Cal Poly","Cal","Campbell",
-    "Central Arkansas","Central Connecticut","Central Michigan","Charleston Southern",
-    "Charlotte","Chattanooga","Cincinnati","Clemson","Coastal Carolina","Colgate",
-    "Colorado","Colorado State","Columbia","Cornell","Dartmouth","Davidson","Dayton",
-    "Delaware","Delaware State","Drake","Duke","Duquesne","East Carolina",
-    "East Tennessee State","Eastern Illinois","Eastern Kentucky","Eastern Michigan",
-    "Eastern Washington","Elon","FIU","Florida","Florida A&M","Florida Atlantic",
-    "Florida State","Fordham","Fresno State","Furman","Gardner-Webb","Georgetown",
-    "Georgia","Georgia Southern","Georgia State","Georgia Tech","Grambling State",
-    "Hampton","Harvard","Hawai'i","Holy Cross","Houston","Houston Christian","Howard",
-    "Idaho","Idaho State","Illinois","Illinois State","Incarnate Word","Indiana",
-    "Indiana State","Iowa","Iowa State","Jackson State", "Jacksonville State","James Madison","Kansas",
-    "Kansas State","Kent State","Kennesaw State","Kentucky","Lafayette","Lamar",
-    "Lehigh","Liberty", "Lindenwood","LIU","Louisiana","Louisiana-Monroe","Louisiana Tech",
-    "Louisville","LSU","Maine","Marist","Marshall","Maryland","Massachusetts (UMass)",
-    "McNeese State","Memphis","Mercer","Merrimack","Miami (FL)","Miami (OH)","Michigan",
-    "Michigan State","Middle Tennessee","Minnesota","Mississippi State",
-    "Mississippi Valley State","Missouri","Missouri State","Monmouth","Montana",
-    "Montana State","Morehead State","Morgan State","Murray State","Navy","Nebraska",
-    "Nevada","New Hampshire","New Mexico","New Mexico State","Nicholls State",
-    "Norfolk State","North Alabama","North Carolina","North Carolina A&T",
-    "North Carolina Central","North Carolina State","North Dakota","North Dakota State",
-    "North Texas","Northern Arizona","Northern Colorado","Northern Illinois",
-    "Northern Iowa","Northwestern","Northwestern State","Notre Dame","Ohio","Ohio State",
-    "Oklahoma","Oklahoma State","Old Dominion","Ole Miss","Oregon","Oregon State",
-    "Penn","Penn State","Pittsburgh","Portland State","Prairie View A&M","Presbyterian",
-    "Princeton","Rhode Island","Rice","Richmond","Robert Morris","Rutgers",
-    "Sacramento State","Sacred Heart","Saint Francis (PA)","Samford","Sam Houston",
-    "San Diego","San Diego State","San Jose State","SMU","South Alabama","South Carolina",
-    "South Carolina State","South Dakota","South Dakota State","South Florida",
-    "Southeast Missouri State","Southeastern Louisiana","Southern","Southern Illinois",
-    "Southern Miss","Southern Utah","Stanford","Stephen F. Austin","Stetson","Stonehill",
-    "Stony Brook", "St. Thomas (MN)","Syracuse", "Tarleton State", "TCU","Temple","Tennessee","Tennessee State",
-    "Tennessee Tech","Texas","Texas A&M","Texas A&M-Commerce","Texas Southern",
-    "Texas State","Texas Tech","The Citadel","Toledo","Towson","Troy","Tulane","Tulsa",
-    "UC Davis","UAB","UCF","UCLA","UConn","UNLV","USC","Utah","Utah State",
-    "Utah Tech","UTEP","UT Martin","UT Rio Grande Valley","UTSA","Valparaiso",
-    "Vanderbilt","Villanova","Virginia","Virginia Tech","VMI","Wagner","Wake Forest",
-    "Washington","Washington State","Weber State","West Georgia","West Virginia",
-    "Western Carolina","Western Illinois","Western Kentucky","Western Michigan",
-    "William & Mary","Wisconsin","Wofford","Wyoming","Yale","Youngstown State"*/
-
-
 const TEAMS = [
-"Abilene Christian University","Alabama A&M University","Alabama State University","Alcorn State University","Appalachian State University","Arizona State University","Arkansas State University","Auburn University","Austin Peay State University","Ball State University","Baylor University","Bethune-Cookman University","Boise State University","Boston College","Bowling Green State University","Brigham Young University","Brown University","Bryant University","Bucknell University","Butler University","California Polytechnic State University – San Luis Obispo","California State University – Fresno","California State University – Sacramento","Campbell University","Central Connecticut State University","Central Michigan University","Charleston Southern University","Clemson University","Coastal Carolina University","Colgate University","College of the Holy Cross","Colorado State University","Columbia University","Cornell University","Cottey College","Dartmouth College","Davidson College","Delaware State University","Drake University","Duke University","Duquesne University","East Carolina University","East Tennessee State University","Eastern Illinois University","Eastern Kentucky University","Eastern Michigan University","Eastern Washington University","Elon University","Florida A&M University","Florida Atlantic University","Florida International University","Florida State University","Fordham University","Formerly Dixie State University","Furman University","Gardner-Webb University","Georgetown University","Georgia Southern University","Georgia State University","Georgia Tech","Grambling State University","Hampton University","Harvard University","Houston Christian University","Howard University","Idaho State University","Illinois State University","Indiana State University","Indiana University","Iowa State University","Jackson State University","Jacksonville State University","James Madison University","Kansas State University","Kennesaw State University","Kent State University","Lafayette College","Lamar University","Lehigh University","Liberty University","Lindenwood University","Long Island University","Louisiana State University (LSU)","Louisiana Tech University","Marist College","Marshall University","McNeese State University","Mercer University","Mercyhurst University","Merrimack College","Miami University","Michigan State University","Middle Tennessee State University","Mississippi State University","Mississippi Valley State University","Missouri State University","Monmouth University","Montana State University","Morehead State University","Morgan State University","Murray State University","New Mexico State University","Nicholls State University","Norfolk State University","North Carolina A&T State University","North Carolina Central University","North Carolina State University","North Dakota State University","Northern Arizona University","Northern Illinois University","Northwestern State University of Louisiana","Northwestern University","Ohio State University","Ohio University","Oklahoma State University","Old Dominion University","Oregon State University","Penn State","Portland State University","Prairie View A & M University","Presbyterian College","Princeton University","Purdue University","Rice University","Robert Morris University – Pennsylvania","Rutgers University","Sacred Heart University","Saint Francis University","Sam Houston State University","Samford University","San Diego State University","San Jose State University","South Carolina State University","South Dakota State University","Southeast Missouri State University","Southeastern Louisiana University","Southern Illinois University Carbondale","Southern Methodist University – SMU","Southern University & A&M College","Southern Utah University","Stanford University","Stephen F Austin State University","Stetson University","Stonehill College","SUNY Stony Brook University","SUNY University at Albany","SUNY University at Buffalo","Syracuse University","Tarleton State University","Temple University","Tennessee State University","Tennessee Technological University","Texas A&M University","Texas A&M University – Commerce","Texas Christian University","Texas Southern University","Texas State University","Texas Tech University","The Citadel","Towson University","Troy University","Tulane University","United States Air Force Academy","United States Military Academy","United States Naval Academy","University of Akron","University of Alabama","University of Alabama – Birmingham","University of Arizona","University of Arkansas","University of Arkansas at Pine Bluff","University of California – Berkeley","University of California – Davis","University of California – Los Angeles – UCLA","University of Central Arkansas","University of Central Florida","University of Cincinnati","University of Colorado – Boulder","University of Connecticut","University of Dayton","University of Delaware","University of Florida","University of Georgia","University of Hawaii at Manoa","University of Houston","University of Idaho","University of Illinois","University of Iowa","University of Kansas","University of Kentucky","University of Louisiana","University of Louisiana – Monroe","University of Louisville","University of Maine","University of Maryland","University of Massachusetts – Amherst","University of Memphis","University of Miami","University of Michigan","University of Minnesota","University of Mississippi","University of Missouri","University of Montana","University of Nebraska","University of Nevada – Las Vegas","University of Nevada – Reno","University of New Hampshire","University of New Mexico","University of North Alabama","University of North Carolina at Chapel Hill","University of North Carolina at Charlotte","University of North Dakota","University of North Texas","University of Northern Colorado","University of Northern Iowa","University of Notre Dame","University of Oklahoma","University of Oregon","University of Pennsylvania – Penn","University of Pittsburgh","University of Rhode Island","University of Richmond","University of San Diego","University of South Alabama","University of South Carolina","University of South Dakota","University of South Florida","University of Southern California","University of Southern Mississippi","University of St. Thomas – Minnesota","University of Tennessee","University of Tennessee – Chattanooga","University of Tennessee – Martin","University of Texas – Austin","University of Texas – El Paso","University of Texas – Rio Grande Valley","University of Texas – San Antonio","University of the Incarnate Word","University of Toledo","University of Tulsa","University of Utah","University of Virginia","University of Washington","University of West Georgia","University of Wisconsin","University of Wyoming","Utah State University","Valparaiso University","Vanderbilt University","Villanova University","Virginia Military Institute – VMI","Virginia Tech","Wagner College","Wake Forest University","Washington State University","Weber State University","West Virginia University","Western Carolina University","Western Illinois University","Western Kentucky University","Western Michigan University","William & Mary","Wofford College","Yale University","Youngstown State University"            
+"Abilene Christian University","Alabama A&M University","Alabama State University","Alcorn State University","Appalachian State University","Arizona State University",
+  "Arkansas State University","Auburn University","Austin Peay State University","Ball State University","Baylor University","Bethune-Cookman University",
+  "Boise State University","Boston College","Bowling Green State University","Brigham Young University","Brown University","Bryant University",
+  "Bucknell University","Butler University","California Polytechnic State University – San Luis Obispo","California State University – Fresno","California State University – Sacramento",
+  "Campbell University","Central Connecticut State University","Central Michigan University","Charleston Southern University","Clemson University",
+  "Coastal Carolina University","Colgate University","College of the Holy Cross","Colorado State University","Columbia University","Cornell University",
+  "Cottey College","Dartmouth College","Davidson College","Delaware State University","Drake University","Duke University","Duquesne University",
+  "East Carolina University","East Tennessee State University","Eastern Illinois University","Eastern Kentucky University","Eastern Michigan University",
+  "Eastern Washington University","Elon University","Florida A&M University","Florida Atlantic University","Florida International University","Florida State University",
+  "Fordham University","Formerly Dixie State University","Furman University","Gardner-Webb University","Georgetown University","Georgia Southern University",
+  "Georgia State University","Georgia Tech","Grambling State University","Hampton University","Harvard University","Houston Christian University","Howard University",
+  "Idaho State University","Illinois State University","Indiana State University","Indiana University","Iowa State University","Jackson State University","Jacksonville State University",
+  "James Madison University","Kansas State University","Kennesaw State University","Kent State University","Lafayette College","Lamar University","Lehigh University",
+  "Liberty University","Lindenwood University","Long Island University","Louisiana State University (LSU)","Louisiana Tech University","Marist College","Marshall University",
+  "McNeese State University","Mercer University","Mercyhurst University","Merrimack College","Miami University","Michigan State University","Middle Tennessee State University",
+  "Mississippi State University","Mississippi Valley State University","Missouri State University","Monmouth University","Montana State University","Morehead State University",
+  "Morgan State University","Murray State University","New Mexico State University","Nicholls State University","Norfolk State University","North Carolina A&T State University",
+  "North Carolina Central University","North Carolina State University","North Dakota State University","Northern Arizona University","Northern Illinois University",
+  "Northwestern State University of Louisiana","Northwestern University","Ohio State University","Ohio University","Oklahoma State University","Old Dominion University",
+  "Oregon State University","Penn State","Portland State University","Prairie View A & M University","Presbyterian College","Princeton University","Purdue University",
+  "Rice University","Robert Morris University – Pennsylvania","Rutgers University","Sacred Heart University","Saint Francis University","Sam Houston State University",
+  "Samford University","San Diego State University","San Jose State University","South Carolina State University","South Dakota State University","Southeast Missouri State University",
+  "Southeastern Louisiana University","Southern Illinois University Carbondale","Southern Methodist University – SMU","Southern University & A&M College","Southern Utah University",
+  "Stanford University","Stephen F Austin State University","Stetson University","Stonehill College","SUNY Stony Brook University","SUNY University at Albany","SUNY University at Buffalo",
+  "Syracuse University","Tarleton State University","Temple University","Tennessee State University","Tennessee Technological University","Texas A&M University","Texas A&M University – Commerce",
+  "Texas Christian University","Texas Southern University","Texas State University","Texas Tech University","The Citadel","Towson University","Troy University","Tulane University",
+  "United States Air Force Academy","United States Military Academy","United States Naval Academy","University of Akron","University of Alabama","University of Alabama – Birmingham",
+  "University of Arizona","University of Arkansas","University of Arkansas at Pine Bluff","University of California – Berkeley","University of California – Davis",
+  "University of California – Los Angeles – UCLA","University of Central Arkansas","University of Central Florida","University of Cincinnati","University of Colorado – Boulder",
+  "University of Connecticut","University of Dayton","University of Delaware","University of Florida","University of Georgia","University of Hawaii at Manoa","University of Houston",
+  "University of Idaho","University of Illinois","University of Iowa","University of Kansas","University of Kentucky","University of Louisiana","University of Louisiana – Monroe",
+  "University of Louisville","University of Maine","University of Maryland","University of Massachusetts – Amherst","University of Memphis","University of Miami","University of Michigan",
+  "University of Minnesota","University of Mississippi","University of Missouri","University of Montana","University of Nebraska","University of Nevada – Las Vegas","University of Nevada – Reno",
+  "University of New Hampshire","University of New Mexico","University of North Alabama","University of North Carolina at Chapel Hill","University of North Carolina at Charlotte",
+  "University of North Dakota","University of North Texas","University of Northern Colorado","University of Northern Iowa","University of Notre Dame","University of Oklahoma",
+  "University of Oregon","University of Pennsylvania – Penn","University of Pittsburgh","University of Rhode Island","University of Richmond","University of San Diego",
+  "University of South Alabama","University of South Carolina","University of South Dakota","University of South Florida","University of Southern California","University of Southern Mississippi",
+  "University of St. Thomas – Minnesota","University of Tennessee","University of Tennessee – Chattanooga","University of Tennessee – Martin","University of Texas – Austin",
+  "University of Texas – El Paso","University of Texas – Rio Grande Valley","University of Texas – San Antonio","University of the Incarnate Word","University of Toledo",
+  "University of Tulsa","University of Utah","University of Virginia","University of Washington","University of West Georgia","University of Wisconsin","University of Wyoming",
+  "Utah State University","Valparaiso University","Vanderbilt University","Villanova University","Virginia Military Institute – VMI","Virginia Tech","Wagner College","Wake Forest University",
+  "Washington State University","Weber State University","West Virginia University","Western Carolina University","Western Illinois University","Western Kentucky University",
+  "Western Michigan University","William & Mary","Wofford College","Yale University","Youngstown State University"            
 ];
 
-  const PLAYERS = [
+  const MANAGERS = [
     "AP","AW","CR","JW","MS","LL","Josh","FAB","JJ","EJ","DA","CO"
   ];
   /* ============================================ */
 
   // Render read-only lists to UI
-  const playersListEl = document.getElementById('playersList');
-  playersListEl.innerHTML = PLAYERS.map(p => `<li>${p}</li>`).join('');
-  document.getElementById('teamsCount').textContent = `${TEAMS.length} teams loaded`;
+  const managersListEl = document.getElementById('managersList');
+  managersListEl.innerHTML = MANAGERS.map(p => `<li>${p}</li>`).join('');
+  document.getElementById('teamsCount').textContent = `${TEAMS.length} NCAAF D1 college teams in list.`;
 
   // Firebase SDK (CDN) — only the pieces we need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -230,15 +224,15 @@ const TEAMS = [
   onValue(ref(db, 'state'), async (snap) => {
     const s = snap.val(); if (!s) return;
     const picks = Array.isArray(s.picks) ? s.picks : [];
-    const players = Array.isArray(s.players) ? s.players : [];
+    const managers = Array.isArray(s.managers) ? s.managers : [];
     const charDelay = Number(speedEl.value||30), pauseMs = Number(pauseEl.value||250);
 
     out.textContent = "Random Team Assignments:\n\n";
     runningLocal = !!s.running;
 
-    for (let i=0; i<Math.min(picks.length, players.length); i++){
+    for (let i=0; i<Math.min(picks.length, managers.length); i++){
       const idx = picks[i]-1;
-      const line = `${players[i].padEnd(10)} -> ${by(picks[i])} - ${TEAMS[idx] || "??"}\n`;
+      const line = `${managers[i].padEnd(10)} -> ${by(picks[i])} - ${TEAMS[idx] || "??"}\n`;
       if (runningLocal){
         for (const ch of line){ if (!runningLocal) break; out.textContent += ch; await sleep(charDelay); }
         if (!runningLocal) break;
@@ -258,18 +252,19 @@ const TEAMS = [
 
   // Buttons
   startBtn.addEventListener('click', async () => {
-    if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265 items.'); return; }
-    if (PLAYERS.length !== 12){ alert('PLAYERS must be exactly 12.'); return; }
+    //${TEAMS.length}
+    if (TEAMS.length !== 265){ alert('There should be exactly 265 NCAAF D1 teams. There are currently ' + TEAMS.length + ' teams in the list.'); return; }
+    if (MANAGERS.length !== 12){ alert('There should be exactly 12 managers. There are currently ' + MANAGERS.length + ' managers in the list.'); return; }
     const picks = pick12(TEAMS.length);
-    await writeState({ running:true, picks, players: shuffle(PLAYERS) });
+    await writeState({ running:true, picks, managers: shuffle(MANAGERS) });
   });
 
   stopBtn.addEventListener('click',  async () => { runningLocal = false; await writeState({ running:false }); });
 
   rerollBtn.addEventListener('click', async () => {
-    if (TEAMS.length !== 265 || PLAYERS.length !== 12) return;
+    if (TEAMS.length !== 265 || MANAGERS.length !== 12) return;
     const picks = pick12(TEAMS.length);
-    await writeState({ running:true, picks, players: shuffle(PLAYERS) });
+    await writeState({ running:true, picks, managers: shuffle(MANAGERS) });
   });
 
   // Copy / CSV
@@ -285,7 +280,7 @@ const TEAMS = [
       const team = teamParts.join(' - ');
       return `"${left}","${num}","${team}"`;
     }).join('\n');
-    const csv = "Player,TeamNumber,Team\n"+rows+"\n";
+    const csv = "Manager,TeamNumber,Team\n"+rows+"\n";
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob); const a=document.createElement('a');
     a.href=url; a.download='assignments.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
