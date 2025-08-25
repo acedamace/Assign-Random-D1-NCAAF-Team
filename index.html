@@ -107,6 +107,9 @@
 </div>
 
 <script type="module">
+  // top of <script type="module">
+let animating = false;
+let activeSeq = null;
   /* ===================== FIXED DATA (READ-ONLY) ===================== */
   // 👉 Paste your exact list from your last message here (265 items, exactly as written):
   const TEAMS = [
@@ -290,7 +293,7 @@
   });
 
   // ---------- state listener: gating + highlights + cooldown ----------
-  onValue(ref(db,'state'), async (snap)=>{
+  /*onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
     const now = Date.now(), until = s.cooldownUntil||0;
 
@@ -327,7 +330,43 @@
 
     // if the state stops, clear button styles
     if (!s.running){ localContinuous=false; localFinalizeRequested=false; beginBtn.classList.remove('on'); finalizeBtn.classList.remove('finalizing'); }
-  });
+  });*/
+
+  onValue(ref(db,'state'), async (snap)=>{
+  const s = snap.val() || {};
+  const running   = !!s.running;
+  const picks     = Array.isArray(s.picks) ? s.picks : [];
+  const managers  = Array.isArray(s.managers) ? s.managers : [];
+  const renderSeq = s.renderSeq ?? null;
+
+  // Do nothing unless we have a new draw AND we're not already animating
+  if (!running || !picks.length || !managers.length) return;
+  if (animating) return;
+  if (renderSeq && renderSeq === activeSeq) return;
+
+  animating = true;
+  activeSeq = renderSeq;
+
+  // IMPORTANT: don't clear output unless we're starting a NEW draw
+  out.textContent = "Random Assignments:\n\n";
+
+  for (let i = 0; i < Math.min(picks.length, managers.length); i++) {
+    const idx = picks[i] - 1;
+    const line = formatLine(managers[i], picks[i], TEAMS[idx] || "??");
+
+    for (const ch of line) {
+      out.textContent += ch;
+      await sleep(globalSpeedMs);
+    }
+    await sleep(globalLinePauseMs);
+    // Only the controller writes progress; others stay read-only
+    if (localIsController) {
+      // This write will trigger onValue again, but animating===true prevents re-entry
+      await update(ref(db, 'state'), { currentPickIndex: i + 1 });
+    }
+  }
+  animating = false;
+});
 
   // ---------- renderer (ONLY animates when running === true) ----------
   onValue(ref(db,'state'), async (snap)=>{
@@ -360,17 +399,27 @@
   async function writeDrawOnce(controller){
     if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265.'); return 0; }
     if (MANAGERS.length !== 12){ alert('MANAGERS must be exactly 12.'); return 0; }
+    const renderSeq = Date.now();
     const picks = pick12(TEAMS.length), managers = shuffle(MANAGERS);
     const duration = computeDrawDuration(picks, managers);
-    await update(ref(db,'state'), { running:true, mode:'once', controllerUid:controller, picks, managers, currentPickIndex:0 });
+    await update(ref(db,'state'), { 
+      running:true, mode:'once', controllerUid:controller, 
+      picks, managers, currentPickIndex:0 ,
+      renderSeq
+    });
     return duration;
   }
   async function writeBeginCycle(controller){
     if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265.'); return 0; }
     if (MANAGERS.length !== 12){ alert('MANAGERS must be exactly 12.'); return 0; }
+    const renderSeq = Date.now();
     const picks = pick12(TEAMS.length), managers = shuffle(MANAGERS);
     const duration = computeDrawDuration(picks, managers);
-    await update(ref(db,'state'), { running:true, mode:'continuous', controllerUid:controller, picks, managers, currentPickIndex:0 });
+    await update(ref(db,'state'), { 
+      running:true, mode:'continuous', controllerUid:controller, 
+      picks, managers, currentPickIndex:0, 
+      renderSeq
+    });
     return duration;
   }
   async function finishAndCooldown(){
