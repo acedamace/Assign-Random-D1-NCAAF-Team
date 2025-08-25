@@ -17,22 +17,22 @@
   .small{font-size:12px;color:#a9afd1}
   .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
 
-  /* top-left: Managers (auto height, no scroll by default) */
+  /* Managers (auto height, no scroll by default) */
   .listbox-auto {overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530;max-height:26vh;}
   ul.managers{margin:0;padding-left:20px;line-height:1.35}
   ul.managers li{margin:2px 0}
 
-  /* top-right: Teams (taller, scrolls; uses more vertical space) */
+  /* Teams (taller, scrolls; uses more vertical space) */
   .listbox-tall {height:38vh;overflow:auto;border:1px solid #2a3252;border-radius:10px;padding:10px;background:#0f1530}
   ol.teamlist{margin:0;padding-left:36px;line-height:1.3}
   ol.teamlist li{padding:3px 6px;border-radius:8px;white-space:nowrap; list-style: decimal}
   ol.teamlist li.hit{background:rgba(122,162,255,.18);outline:1px solid rgba(122,162,255,.35);font-weight:600}
 
-  /* output spans full width */
+  /* Output spans full width */
   .wide{grid-column: 1 / span 2;}
   .out{font-family:ui-monospace,Consolas,Menlo,monospace;background:#0f1530;border:1px solid #2a3252;border-radius:10px;padding:12px;height:46vh;overflow:auto;white-space:pre}
 
-  /* footer controls below output */
+  /* Footer controls under Output */
   .controlsFooter{margin-top:8px;background:#0f1530;border:1px solid #2a3252;border-radius:12px;padding:10px}
   .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
   .btn{background:#1d2544;color:var(--text);border:1px solid #2a3252;border-radius:10px;padding:10px 14px;cursor:pointer;transition:.15s transform ease,.15s opacity ease}
@@ -42,7 +42,7 @@
   .btn.on{outline:2px solid var(--ok);box-shadow:0 0 0 4px rgba(121,255,161,.12) inset}
   .btn.finalizing{outline:2px solid var(--warn);box-shadow:0 0 0 4px rgba(255,212,121,.12) inset}
 
-  /* host-only speed controls (hidden for others) */
+  /* Host-only speed controls (hidden for others) */
   #speedRow{display:none;margin-top:10px}
   .pill{background:#101736;border:1px solid #2a3252;padding:8px 10px;border-radius:10px}
 
@@ -52,7 +52,7 @@
 <body>
 <div class="wrap">
   <h1>Randomly Assign NCAAF D1 Teams</h1>
-  <!-- Roles line intentionally removed from the page per your request. (Kept logic in code.) -->
+  <!-- (Roles line intentionally removed from the page; logic kept in code.) -->
 
   <div class="grid">
     <!-- Left: Managers (bulleted, no default scrollbar) -->
@@ -102,16 +102,13 @@
     </div>
     <div class="small" id="status">Connecting…</div>
     <div class="small" id="audience"></div>
-    <div class="small">Hotkeys: <b>Space</b> Begin/stop in your role • <b>R</b> Draw Once</div>
+    <div class="small">Hotkeys: <b>Space</b> Begin/stop (Executor) • <b>R</b> Draw Once</div>
   </div>
 </div>
 
 <script type="module">
-  // top of <script type="module">
-let animating = false;
-let activeSeq = null;
   /* ===================== FIXED DATA (READ-ONLY) ===================== */
-  // 👉 Paste your exact list from your last message here (265 items, exactly as written):
+  // 👉 Paste your exact 265-name University/College list here (the one you provided). Keep it at 265.
   const TEAMS = [
 "Abilene Christian University","Alabama A&M University","Alabama State University","Alcorn State University","Appalachian State University","Arizona State University",
   "Arkansas State University","Auburn University","Austin Peay State University","Ball State University","Baylor University","Bethune-Cookman University",
@@ -208,7 +205,7 @@ let activeSeq = null;
 
   // Render static lists
   managersList.innerHTML = MANAGERS.map(m=>`<li>${m}</li>`).join('');
-  teamList.innerHTML = TEAMS.map((_t,i)=> `<li data-num="${i+1}">${_t}</li>`).join('');
+  teamList.innerHTML = TEAMS.map((t,i)=> `<li data-num="${i+1}">${t}</li>`).join('');
 
   // ---------- global state ----------
   let myUID=null, myName="Viewer";
@@ -217,6 +214,13 @@ let activeSeq = null;
   let localIsController=false;
   let localContinuous=false;
   let localFinalizeRequested=false;
+
+  // renderer guards
+  let animating = false;
+  let activeSeq = null;
+
+  // cooldown timer singleton
+  let cooldownTimer = null;
 
   // ---------- auth ----------
   onAuthStateChanged(auth, async (user)=>{
@@ -262,11 +266,11 @@ let activeSeq = null;
   function wireUIForRole(){
     // Start (host toggles control mode)
     startBtn.disabled = !isHost;
-    // Begin only Executor (but still requires controlMode 'begin' to enable)
+    // Begin will be enabled by UI listener only if controlMode === 'begin' AND user is Executor
     beginBtn.disabled = true;
-    // Finalizer-only (but first gated by cyclesCompleted >= 1 in state listener)
+    // Finalize enabled by UI listener only if cyclesCompleted >= 1 AND user is Finalizer
     finalizeBtn.disabled = true;
-    // Draw Once enabled by default; Start may disable it via controlMode
+    // Draw Once is allowed by default; Start may disable it
     drawOnceBtn.disabled = false;
     // Host-only speed controls
     speedRow.style.display = isHost ? '' : 'none';
@@ -292,29 +296,39 @@ let activeSeq = null;
     audEl.textContent = 'Connected: ' + (list.length ? list.join(' | ') : '—');
   });
 
-  // ---------- state listener: gating + highlights + cooldown ----------
-  /*onValue(ref(db,'state'), async (snap)=>{
+  // ========== UI LISTENER: cooldown, buttons, highlights (never touches #out) ==========
+  onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
-    const now = Date.now(), until = s.cooldownUntil||0;
+    const now = Date.now();
+    const until = s.cooldownUntil||0;
 
-    // cooldown
+    // Cooldown handling with single timer
     if (now < until){
-      const tick = ()=> {
-        const n = Date.now();
-        const secs = Math.max(0, Math.ceil((until - n)/1000));
-        cooldownEl.textContent = ` — Finalized. Controls unlock in ${secs}s`;
-        if (n >= until){ cooldownEl.textContent=''; wireUIForRole(); clearInterval(timer); }
-      };
+      if (!cooldownTimer){
+        const tick = ()=>{
+          const n = Date.now();
+          const secs = Math.max(0, Math.ceil((until - n)/1000));
+          cooldownEl.textContent = ` — Finalized. Controls unlock in ${secs}s`;
+          if (n >= until){
+            cooldownEl.textContent='';
+            clearInterval(cooldownTimer);
+            cooldownTimer = null;
+            wireUIForRole();
+          }
+        };
+        cooldownTimer = setInterval(tick, 500);
+        tick();
+      }
       startBtn.disabled = beginBtn.disabled = drawOnceBtn.disabled = finalizeBtn.disabled = true;
-      const timer = setInterval(tick, 500); tick();
     } else {
       cooldownEl.textContent='';
       // base role gating
       startBtn.disabled = !isHost;
-      drawOnceBtn.disabled = false;
       // Begin only enabled if controlMode === 'begin' AND user is Executor
       const mode = s.controlMode || 'drawonce';
       beginBtn.disabled = !(mode === 'begin' && isExecutor);
+      // Draw Once enabled only if not in 'begin' control mode
+      drawOnceBtn.disabled = (mode === 'begin');
       // Finalize enabled only if cyclesCompleted >= 1 AND user is Finalizer
       const cycles = s.cyclesCompleted || 0;
       finalizeBtn.disabled = !(cycles >= 1 && isFinalizer);
@@ -328,64 +342,39 @@ let activeSeq = null;
       if (li) li.classList.add('hit');
     });
 
-    // if the state stops, clear button styles
-    if (!s.running){ localContinuous=false; localFinalizeRequested=false; beginBtn.classList.remove('on'); finalizeBtn.classList.remove('finalizing'); }
-  });*/
-
-  onValue(ref(db,'state'), async (snap)=>{
-  const s = snap.val() || {};
-  const running   = !!s.running;
-  const picks     = Array.isArray(s.picks) ? s.picks : [];
-  const managers  = Array.isArray(s.managers) ? s.managers : [];
-  const renderSeq = s.renderSeq ?? null;
-
-  // Do nothing unless we have a new draw AND we're not already animating
-  if (!running || !picks.length || !managers.length) return;
-  if (animating) return;
-  if (renderSeq && renderSeq === activeSeq) return;
-
-  animating = true;
-  activeSeq = renderSeq;
-
-  // IMPORTANT: don't clear output unless we're starting a NEW draw
-  out.textContent = "Random Assignments:\n\n";
-
-  for (let i = 0; i < Math.min(picks.length, managers.length); i++) {
-    const idx = picks[i] - 1;
-    const line = formatLine(managers[i], picks[i], TEAMS[idx] || "??");
-
-    for (const ch of line) {
-      out.textContent += ch;
-      await sleep(globalSpeedMs);
+    // if the state stops, clear button styles (visual)
+    if (!s.running){
+      localContinuous=false; localFinalizeRequested=false;
+      beginBtn.classList.remove('on'); finalizeBtn.classList.remove('finalizing');
     }
-    await sleep(globalLinePauseMs);
-    // Only the controller writes progress; others stay read-only
-    if (localIsController) {
-      // This write will trigger onValue again, but animating===true prevents re-entry
-      await update(ref(db, 'state'), { currentPickIndex: i + 1 });
-    }
-  }
-  animating = false;
-});
+  });
 
-  // ---------- renderer (ONLY animates when running === true) ----------
+  // ========== RENDERER LISTENER: types output once per draw (guarded) ==========
   onValue(ref(db,'state'), async (snap)=>{
     const s = snap.val()||{};
-    const picks = Array.isArray(s.picks)? s.picks : [];
-    const managers = Array.isArray(s.managers)? s.managers : [];
-    const running = !!s.running;
+    const running   = !!s.running;
+    const picks     = Array.isArray(s.picks) ? s.picks : [];
+    const managers  = Array.isArray(s.managers) ? s.managers : [];
+    const renderSeq = s.renderSeq ?? null;
 
-    // Do nothing until a button actually starts a draw
-    if (!running || !picks.length || !managers.length){ out.textContent=""; return; }
+    if (!running || !picks.length || !managers.length) return;
+    if (animating) return;
+    if (renderSeq && renderSeq === activeSeq) return;
+
+    animating = true;
+    activeSeq = renderSeq;
 
     out.textContent = "Random Assignments:\n\n";
+
     for (let i=0;i<Math.min(picks.length, managers.length);i++){
       const idx = picks[i]-1;
       const line = formatLine(managers[i], picks[i], TEAMS[idx] || "??");
       for (const ch of line){ out.textContent += ch; await sleep(globalSpeedMs); }
       await sleep(globalLinePauseMs);
-      if (localIsController){ await update(ref(db,'state'), { currentPickIndex: i+1 }); }
+      // (Optional reduction in DB writes): we no longer update currentPickIndex each line.
     }
+
+    animating = false;
   });
 
   // ---------- draw helpers ----------
@@ -396,57 +385,69 @@ let activeSeq = null;
     }
     return chars*globalSpeedMs + managers.length*globalLinePauseMs + 200;
   }
+
   async function writeDrawOnce(controller){
     if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265.'); return 0; }
     if (MANAGERS.length !== 12){ alert('MANAGERS must be exactly 12.'); return 0; }
-    const renderSeq = Date.now();
-    const picks = pick12(TEAMS.length), managers = shuffle(MANAGERS);
+    const picks = pick12(TEAMS.length);
+    const managers = shuffle(MANAGERS);
     const duration = computeDrawDuration(picks, managers);
-    await update(ref(db,'state'), { 
-      running:true, mode:'once', controllerUid:controller, 
-      picks, managers, currentPickIndex:0 ,
-      renderSeq
+    const renderSeq = Date.now();
+    await update(ref(db,'state'), {
+      running:true, mode:'once', controllerUid:controller,
+      picks, managers, renderSeq
     });
     return duration;
   }
+
   async function writeBeginCycle(controller){
     if (TEAMS.length !== 265){ alert('TEAMS must be exactly 265.'); return 0; }
     if (MANAGERS.length !== 12){ alert('MANAGERS must be exactly 12.'); return 0; }
-    const renderSeq = Date.now();
-    const picks = pick12(TEAMS.length), managers = shuffle(MANAGERS);
+    const picks = pick12(TEAMS.length);
+    const managers = shuffle(MANAGERS);
     const duration = computeDrawDuration(picks, managers);
-    await update(ref(db,'state'), { 
-      running:true, mode:'continuous', controllerUid:controller, 
-      picks, managers, currentPickIndex:0, 
-      renderSeq
+    const renderSeq = Date.now();
+    await update(ref(db,'state'), {
+      running:true, mode:'continuous', controllerUid:controller,
+      picks, managers, renderSeq
     });
     return duration;
   }
+
   async function finishAndCooldown(){
     const now = Date.now();
+    // return roles to host for executor/finalizer
     const r = await get(ref(db,'roles')); const val = r.exists()? r.val():{};
     const hostUid = val.hostUid || null;
-    await update(ref(db,'state'), { running:false, finalizeRequested:false, finalizedAt: now, cooldownUntil: now + 60000, controlMode:'drawonce' });
-    if (hostUid){ await update(ref(db,'roles'), { executorUid: hostUid, finalizerUid: hostUid }); }
+
+    await update(ref(db,'state'), {
+      running:false, finalizeRequested:false, finalizedAt: now,
+      cooldownUntil: now + 60000, controlMode:'drawonce'
+    });
+
+    if (hostUid){
+      await update(ref(db,'roles'), {
+        executorUid: hostUid,
+        finalizerUid: hostUid
+      });
+    }
   }
 
   // ---------- buttons ----------
-  // Start flips controlMode → only Host
-  startBtn.addEventListener('click', async ()=>{ 
-    // Start enables Begin & disables Draw Once (global)
+  // Start → controlMode 'begin' (host only)
+  startBtn.addEventListener('click', async ()=>{
     await update(ref(db,'state'), { controlMode:'begin' });
   });
 
-  // Begin = continuous loop → Executor only; blocked while pick 12 is rendering
+  // Begin → continuous loop (Executor only). No pick-12 gating anymore.
   beginBtn.addEventListener('click', async ()=>{
-    const s = (await get(ref(db,'state'))).val()||{};
-    const mode = s.controlMode || 'drawonce';
-    if (!(isExecutor && mode==='begin')) return;
+    // Enable only if UI listener has set it (controlMode === 'begin' & executor)
+    if (beginBtn.disabled) return;
     if (localContinuous) return;
-    if ((s.currentPickIndex||0) === 12) return;
 
     beginBtn.classList.add('on');
-    localContinuous = true; localFinalizeRequested=false;
+    localContinuous = true;
+    localFinalizeRequested = false;
 
     const loop = async ()=>{
       const dur = await writeBeginCycle(myUID);
@@ -464,8 +465,10 @@ let activeSeq = null;
     loop();
   });
 
-  // Draw Once acts as its own stop (just one cycle)
+  // Draw Once → one draw then stop (acts as its own start/stop)
   drawOnceBtn.addEventListener('click', async ()=>{
+    if (drawOnceBtn.disabled) return;
+    // If already running once, do nothing; it will stop when finished.
     const s = (await get(ref(db,'state'))).val()||{};
     const running = !!s.running && s.mode==='once';
     if (!running){
@@ -474,14 +477,12 @@ let activeSeq = null;
       const prev = (await get(ref(db,'state'))).val()||{};
       const cyc = (prev.cyclesCompleted||0)+1;
       await update(ref(db,'state'), { running:false, cyclesCompleted:cyc });
-    } else {
-      // do nothing; current once-draw finishes then stops
     }
   });
 
-  // Finalize: only Finalizer; if in continuous, completes current + one more, then cooldown
+  // Finalize → if continuous, finish current + one more; else enter cooldown
   finalizeBtn.addEventListener('click', async ()=>{
-    if (!isFinalizer) return;
+    if (finalizeBtn.disabled) return;
     finalizeBtn.classList.add('finalizing');
     const s = (await get(ref(db,'state'))).val()||{};
     if (s.mode==='continuous' && s.running){
@@ -489,7 +490,12 @@ let activeSeq = null;
       await update(ref(db,'state'), { finalizeRequested:true });
     } else {
       if (s.running && s.mode==='once'){
-        while(true){ const cur = (await get(ref(db,'state'))).val()||{}; if ((cur.currentPickIndex||0) >= 12) break; await sleep(200); }
+        // wait until renderer finishes naturally
+        while(true){
+          const cur = (await get(ref(db,'state'))).val()||{};
+          if (!cur.running) break;
+          await sleep(200);
+        }
       }
       await finishAndCooldown();
       finalizeBtn.classList.remove('finalizing');
@@ -497,7 +503,10 @@ let activeSeq = null;
   });
 
   // Copy / CSV
-  copyBtn.addEventListener('click', async ()=>{ await navigator.clipboard.writeText(out.textContent); statusEl.textContent='Output copied'; setTimeout(()=>statusEl.textContent='',1500); });
+  copyBtn.addEventListener('click', async ()=>{
+    await navigator.clipboard.writeText(out.textContent);
+    statusEl.textContent='Output copied'; setTimeout(()=>statusEl.textContent='',1500);
+  });
   csvBtn.addEventListener('click', ()=>{
     const lines = out.textContent.trim().split('\n').slice(2).filter(x=>x.includes('->'));
     const rows = lines.map(line=>{
@@ -517,7 +526,7 @@ let activeSeq = null;
     if (e.key.toLowerCase()==='r'){ e.preventDefault(); if (!drawOnceBtn.disabled) drawOnceBtn.click(); }
   });
 
-  // quick data guard (shows error but does nothing until you hit a button)
+  // Quick data guard (shows error but does nothing until you hit a button)
   if (TEAMS.length !== 265) out.textContent = "ERROR: TEAMS must contain exactly 265 items.\nPaste your full list into the TEAMS array.";
   if (MANAGERS.length !== 12) out.textContent += "\nERROR: MANAGERS must contain exactly 12 items.";
 </script>
